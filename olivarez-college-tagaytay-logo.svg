@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Olivarez College Tagaytay logo">
+  <defs>
+    <linearGradient id="oc-green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0e7c34"/>
+      <stop offset="1" stop-color="#004d1c"/>
+    </linearGradient>
+    <linearGradient id="oc-gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="1" stop-color="#d9a51f"/>
+    </linearGradient>
+    <!-- curved text paths (radius 89, on the green ring) -->
+    <path id="ring-top" d="M 30 100 A 70 70 0 0 1 170 100" transform="translate(100 100) rotate(180) translate(-100 -100)"/>
+    <path id="ring-bottom" d="M 170 100 A 70 70 0 0 1 30 100" transform="translate(100 100) rotate(180) translate(-100 -100)"/>
+  </defs>
+
+  <!-- outer green ring -->
+  <circle cx="100" cy="100" r="97" fill="url(#oc-green)"/>
+  <circle cx="100" cy="100" r="97" fill="none" stroke="#003412" stroke-width="2"/>
+  <!-- scalloped gold ticks on the green ring -->
+  <circle cx="100" cy="100" r="92.5" fill="none" stroke="#f2c14e" stroke-width="3" stroke-dasharray="6 12" opacity=".9"/>
+
+  <!-- curved text on the green ring -->
+  <text font-family="Georgia, 'Times New Roman', serif" font-size="12" font-weight="700" fill="#ffe9b3" letter-spacing="2.4">
+    <textPath href="#ring-top" startOffset="50%" text-anchor="middle">OLIVAREZ COLLEGE</textPath>
+  </text>
+  <text font-family="Georgia, 'Times New Roman', serif" font-size="12" font-weight="700" fill="#ffe9b3" letter-spacing="2.4">
+    <textPath href="#ring-bottom" startOffset="50%" text-anchor="middle">TAGAYTAY</textPath>
+  </text>
+
+  <!-- gold inner ring -->
+  <circle cx="100" cy="100" r="81" fill="url(#oc-gold)"/>
+  <circle cx="100" cy="100" r="81" fill="none" stroke="#0a3d17" stroke-width="2" opacity=".55"/>
+  <!-- cream field -->
+  <circle cx="100" cy="100" r="68" fill="#fff6dc"/>
+  <circle cx="100" cy="100" r="68" fill="none" stroke="#c9a227" stroke-width="1.5" opacity=".6"/>
+
+  <!-- laurel branches -->
+  <path d="M 38 92 C 36 72 46 60 60 53" fill="none" stroke="#0e7c34" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M 162 92 C 164 72 154 60 140 53" fill="none" stroke="#0e7c34" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- laurel leaves (left) -->
+  <g fill="#0e7c34">
+    <ellipse cx="42" cy="84" rx="6" ry="2.6" transform="rotate(40 42 84)"/>
+    <ellipse cx="41" cy="74" rx="6" ry="2.6" transform="rotate(58 41 74)"/>
+    <ellipse cx="45" cy="65" rx="6" ry="2.6" transform="rotate(72 45 65)"/>
+    <ellipse cx="53" cy="57" rx="6" ry="2.6" transform="rotate(88 53 57)"/>
+    <ellipse cx="63" cy="54" rx="6" ry="2.6" transform="rotate(78 63 54)"/>
+  </g>
+  <!-- laurel leaves (right) -->
+  <g fill="#0e7c34">
+    <ellipse cx="158" cy="84" rx="6" ry="2.6" transform="rotate(-40 158 84)"/>
+    <ellipse cx="159" cy="74" rx="6" ry="2.6" transform="rotate(-58 159 74)"/>
+    <ellipse cx="155" cy="65" rx="6" ry="2.6" transform="rotate(-72 155 65)"/>
+    <ellipse cx="147" cy="57" rx="6" ry="2.6" transform="rotate(-88 147 57)"/>
+    <ellipse cx="137" cy="54" rx="6" ry="2.6" transform="rotate(-78 137 54)"/>
+  </g>
+
+  <!-- torch -->
+  <path d="M100 36 c-9.5 9.5 -15 16.5 -15 25 a15 15 0 0 0 30 0 c0 -8.5 -5.5 -15.5 -15 -25 z" fill="#e31837"/>
+  <path d="M100 49 c-4.8 4.8 -7.5 8.5 -7.5 12.5 a7.5 7.5 0 0 0 15 0 c0 -4 -2.7 -7.7 -7.5 -12.5 z" fill="#f2c14e"/>
+  <path d="M88 67 h24 l4.5 13 h-33 z" fill="#c9a227" stroke="#8a6a10" stroke-width="1.5"/>
+  <rect x="96.5" y="79" width="7" height="13" rx="2.5" fill="#8a6a10"/>
+
+  <!-- open book -->
+  <path d="M100 96 L66 82 v14 c0 9 8 13.5 17 15.5 l17 4 17 -4 c9 -2 17 -6.5 17 -15.5 v-14 L100 96 z" fill="#ffffff" stroke="#c9a227" stroke-width="2"/>
+  <line x1="100" y1="96" x2="100" y2="121" stroke="#c9a227" stroke-width="2"/>
+  <g stroke="#cbbf9c" stroke-width="1.6" stroke-linecap="round">
+    <line x1="74" y1="91" x2="92" y2="91"/>
+    <line x1="74" y1="97" x2="88" y2="98"/>
+    <line x1="108" y1="91" x2="126" y2="91"/>
+    <line x1="112" y1="98" x2="126" y2="98"/>
+  </g>
+</svg>

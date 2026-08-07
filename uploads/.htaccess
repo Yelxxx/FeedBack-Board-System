@@ -1,0 +1,6 @@
+# Defense in depth: never allow uploaded files to be executed as scripts.
+<FilesMatch "\.(php|php\d|phtml|phar|cgi|pl|py|sh|asp|aspx)$">
+    Require all denied
+</FilesMatch>
+
+php_flag engine off
