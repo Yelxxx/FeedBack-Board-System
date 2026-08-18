@@ -26,7 +26,7 @@ $notifs    = $isLoggedIn ? unread_notifications($pdo, (int)$user['id']) : [];
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= e($pageTitle) ?> · <?= e(APP_NAME) ?></title>
 <link rel="stylesheet" href="<?= e($base) ?>assets/css/style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='12' fill='%23006225'/><path d='M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/><path d='M13.73 21a2 2 0 0 1-3.46 0' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<link rel="icon" href="<?= e($base) ?>olivarez-college-tagaytay-logo.png">
 </head>
 <body data-base="<?= e($base) ?>" data-csrf="<?= e(csrf_token()) ?>" data-max-upload="<?= (int)MAX_UPLOAD_MB ?>"<?= $bodyClass !== '' ? ' class="' . e($bodyClass) . '"' : '' ?>>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -34,7 +34,7 @@ $notifs    = $isLoggedIn ? unread_notifications($pdo, (int)$user['id']) : [];
 <nav class="navbar">
   <div class="container nav-inner">
     <a class="brand" href="<?= e($base) ?><?= $isLoggedIn ? 'dashboard.php' : 'index.php' ?>">
-      <img class="brand-logo" src="<?= e($base) ?>olivarez-college-tagaytay-logo.svg" alt="Olivarez College Tagaytay logo">
+      <img class="brand-logo" src="<?= e($base) ?>olivarez-college-tagaytay-logo.png" alt="Olivarez College Tagaytay logo">
       <span class="brand-text"><?= e(APP_NAME) ?></span>
     </a>
 
