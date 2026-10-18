@@ -20,19 +20,21 @@ foreach ($stmt as $row) {
 }
 $total = array_sum($counts);
 
-// The user's own posts
+// The user's own posts (rejected posts still appear here so they can see the
+// moderation decision on their own dashboard — shown with the badge).
 $stmt = $pdo->prepare(
     'SELECT * FROM feedbacks WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 8'
 );
 $stmt->execute([(int)$user['id']]);
 $myTickets = $stmt->fetchAll();
 
-// General posts: approved feedback from OTHER users, across all fields
+// General posts: approved feedback from OTHER users, across all fields.
+// Rejected (moderated) posts never appear in the general feed.
 $stmt = $pdo->prepare(
     "SELECT f.*, u.name
      FROM feedbacks f
      JOIN users u ON u.id = f.user_id
-     WHERE f.is_public = 1 AND f.user_id <> ?
+     WHERE f.is_public = 1 AND f.user_id <> ? AND f.status <> 'rejected'
      ORDER BY f.created_at DESC, f.id DESC
      LIMIT 8"
 );
@@ -85,7 +87,7 @@ require __DIR__ . '/includes/header.php';
 </div>
 
 <div class="dash-grid">
-  <div class="dash-col">
+  <div class="dash-col" id="general-anchor">
     <div class="section-head">
       <h2>My Posts</h2>
       <p>Track the status of the posts you created.</p>
@@ -121,7 +123,7 @@ require __DIR__ . '/includes/header.php';
     <?php endif; ?>
   </div>
 
-  <div class="dash-col">
+  <div class="dash-col" id="general">
     <div class="section-head">
       <h2>General Posts</h2>
       <p>Feedback from other users across every field, approved for public viewing.</p>

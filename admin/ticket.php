@@ -36,8 +36,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = (string)($_POST['action'] ?? '');
 
         switch ($action) {
+            case 'reject':
+                // Moderation: only the Super Admin can reject a post (spam/inappropriate).
+                if (!is_super_admin()) {
+                    flash_set('error', 'Only the Super Admin can reject posts.');
+                } else {
+                    $upd = $pdo->prepare("UPDATE feedbacks SET status = 'rejected', is_public = 0 WHERE id = ?");
+                    $upd->execute([(int)$ticket['id']]);
+                    notify_user(
+                        $pdo,
+                        (int)$ticket['user_id'],
+                        'Your ticket ' . $ticket['ticket_no'] . ' was rejected by moderation for violating the posting rules.',
+                        (int)$ticket['id']
+                    );
+                    flash_set('success', 'Post ' . $ticket['ticket_no'] . ' rejected. The reporter has been notified.');
+                }
+                redirect('ticket.php?id=' . $ticket['id']);
+                break;
+
+            case 'restore':
+                // Super Admin only: undo a rejection (send back to Pending).
+                if (!is_super_admin()) {
+                    flash_set('error', 'Only the Super Admin can restore posts.');
+                } else {
+                    $upd = $pdo->prepare("UPDATE feedbacks SET status = 'pending' WHERE id = ?");
+                    $upd->execute([(int)$ticket['id']]);
+                    notify_user(
+                        $pdo,
+                        (int)$ticket['user_id'],
+                        'Your ticket ' . $ticket['ticket_no'] . ' has been restored and is pending review again.',
+                        (int)$ticket['id']
+                    );
+                    flash_set('success', 'Post ' . $ticket['ticket_no'] . ' restored to Pending.');
+                }
+                redirect('ticket.php?id=' . $ticket['id']);
+                break;
+
             case 'status':
                 $newStatus = (string)($_POST['status'] ?? '');
+                // Field admins can never set admin-only statuses (e.g. rejected);
+                // they manage the normal workflow only.
+                if (in_array($newStatus, ADMIN_ONLY_STATUSES, true) && !is_super_admin()) {
+                    flash_set('error', 'Field admins cannot use moderation statuses.');
+                    redirect('ticket.php?id=' . $ticket['id']);
+                }
                 if (array_key_exists($newStatus, STATUS_LABELS) && $newStatus !== $ticket['status']) {
                     $upd = $pdo->prepare('UPDATE feedbacks SET status = ? WHERE id = ?');
                     $upd->execute([$newStatus, (int)$ticket['id']]);
@@ -257,6 +299,24 @@ require __DIR__ . '/../includes/header.php';
           <button type="submit" class="btn btn-primary">Assign</button>
         </div>
       </form>
+
+      <?php if (is_super_admin()): ?>
+      <div class="form-inline">
+        <span class="form-label-sm">Moderation (Super Admin)</span>
+        <?php if ($ticket['status'] === 'rejected'): ?>
+        <form method="post" action="ticket.php?id=<?= (int)$ticket['id'] ?>">
+          <?= csrf_field() ?>          <input type="hidden" name="action" value="restore">
+          <button type="submit" class="btn btn-outline btn-block">Restore to Pending</button>
+        </form>
+        <?php else: ?>
+        <form method="post" action="ticket.php?id=<?= (int)$ticket['id'] ?>" data-confirm="Reject this post? It will be hidden from all boards and the reporter will be notified.">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="reject">
+          <button type="submit" class="btn btn-danger btn-block">Reject post (spam/inappropriate)</button>
+        </form>
+        <?php endif; ?>
+      </div>
+      <?php endif; ?>
 
       <div class="form-inline">
         <span class="form-label-sm">Public Board</span>

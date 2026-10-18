@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS feedbacks (
   description   TEXT         NOT NULL,
   image_path    VARCHAR(255) DEFAULT NULL,             -- optional photo evidence
   is_anonymous  TINYINT(1)   NOT NULL DEFAULT 0,       -- hide identity from admins
-  status        ENUM('pending','under_review','resolved') NOT NULL DEFAULT 'pending',
+  status        ENUM('pending','under_review','resolved','rejected') NOT NULL DEFAULT 'pending',
   assigned_dept VARCHAR(60)  DEFAULT NULL,             -- e.g. Maintenance, OSA, HR...
   is_public     TINYINT(1)   NOT NULL DEFAULT 0,       -- shown on the Public Board
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

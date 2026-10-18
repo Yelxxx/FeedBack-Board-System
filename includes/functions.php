@@ -175,6 +175,26 @@ function scope_category(string $scope): string
     return FIELD_SCOPES[$scope] ?? '';
 }
 
+/**
+ * The "field" a logged-in user belongs to, as a category label — matched by
+ * keyword from their department (e.g. "Maintenance Department" -> the
+ * 'maintenance' scope). Falls back to null when no keyword matches.
+ */
+function user_field(array $user): ?string
+{
+    $dept = strtolower((string)($user['department'] ?? ''));
+    if ($dept === '') return null;
+
+    foreach (FIELD_SCOPES as $scope => $category) {
+        foreach (preg_split('/[\s\/]+/', (string)$scope) as $word) {
+            if ($word !== '' && strpos($dept, strtolower($word)) !== false) {
+                return $category;
+            }
+        }
+    }
+    return null;
+}
+
 // ---------------- CSRF protection ----------------
 
 function csrf_token(): string

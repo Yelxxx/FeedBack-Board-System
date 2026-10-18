@@ -44,7 +44,9 @@ $notifs    = $isLoggedIn ? unread_notifications($pdo, (int)$user['id']) : [];
 
     <?php if ($isLoggedIn): ?>
     <div class="nav-links" id="navLinks">
-      <a class="nav-link <?= $active === 'dashboard' ? 'active' : '' ?>" href="<?= e($base) ?>dashboard.php">Dashboard</a>
+      <a class="nav-link <?= $active === 'home' ? 'active' : '' ?>" href="<?= e($base) ?>index.php">Home</a>
+      <a class="nav-link <?= $active === 'field' ? 'active' : '' ?>" href="<?= e($base) ?>my-field.php">My Field</a>
+      <a class="nav-link <?= $active === 'dashboard' ? 'active' : '' ?>" href="<?= e($base) ?>dashboard.php">General Posts</a>
       <a class="nav-link <?= $active === 'submit' ? 'active' : '' ?>" href="<?= e($base) ?>submit.php">Submit Feedback</a>
       <?php if (is_admin()): ?>
       <a class="nav-link <?= $active === 'admin' ? 'active' : '' ?>" href="<?= e($base) ?>admin/dashboard.php">Admin Panel</a>

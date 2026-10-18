@@ -1,30 +1,29 @@
 <?php
 // ============================================================================
-//  Landing page + Public Board (Phase 2)
-//  Guests see a hero and the approved public feedback feed.
-//  Logged-in users are sent to their dashboard.
+//  Home / Landing page
+//  Guests: hero + public board showcase (marketing + browse).
+//  Logged-in users: clean hub with the three main destinations.
 // ============================================================================
 require_once __DIR__ . '/config.php';
 
-if (current_user() !== null) {
-    redirect('dashboard.php');
-}
-
 $base      = '';
-$pageTitle = 'Public Feedback Board';
-$active    = 'board';
-$bodyClass = 'landing';
+$active    = 'home';
 
-$feed = $pdo->query(
-    "SELECT f.*, u.name
-     FROM feedbacks f
-     JOIN users u ON u.id = f.user_id
-     WHERE f.is_public = 1
-     ORDER BY f.created_at DESC, f.id DESC
-     LIMIT 12"
-)->fetchAll();
+if (current_user() === null) {
+    // ------------------------- Guest view -------------------------
+    $pageTitle = 'Public Feedback Board';
+    $bodyClass = 'landing';
 
-require __DIR__ . '/includes/header.php';
+    $feed = $pdo->query(
+        "SELECT f.*, u.name
+         FROM feedbacks f
+         JOIN users u ON u.id = f.user_id
+         WHERE f.is_public = 1 AND f.status <> 'rejected'
+         ORDER BY f.created_at DESC, f.id DESC
+         LIMIT 12"
+    )->fetchAll();
+
+    require __DIR__ . '/includes/header.php';
 ?>
 
 <section class="hero">
@@ -40,7 +39,7 @@ require __DIR__ . '/includes/header.php';
     <div class="hero-features">
       <span>Anonymous reporting</span>
       <span>Unique ticket numbers</span>
-      <span>Admin analytics</span>
+      <span>Field-based routing</span>
     </div>
   </div>
 </section>
@@ -95,17 +94,17 @@ require __DIR__ . '/includes/header.php';
       <div class="how-step">
         <span class="how-num">1</span>
         <h3>Submit</h3>
-        <p>Fill in the category, subject and details. Add a photo as evidence — or stay anonymous.</p>
+        <p>Fill in the category, subject and details. Add a photo, video or audio as evidence — or stay anonymous.</p>
       </div>
       <div class="how-step">
         <span class="how-num">2</span>
         <h3>Track</h3>
-        <p>Get a unique ticket number (TKT-001) and follow its status: Pending, then Under Review, then Resolved.</p>
+        <p>Get a unique ticket number and follow its status: Pending, Under Review, then Resolved.</p>
       </div>
       <div class="how-step">
         <span class="how-num">3</span>
         <h3>Resolved</h3>
-        <p>Admins assign your concern to the right office and keep you updated through the comments thread.</p>
+        <p>Your concern is routed to the office that handles your field and kept updated via the discussion thread.</p>
       </div>
     </div>
   </div>
@@ -118,5 +117,60 @@ require __DIR__ . '/includes/header.php';
     <a class="btn btn-light" href="auth/register.php">Create free account</a>
   </div>
 </section>
+
+<?php require __DIR__ . '/includes/footer.php';
+    return;
+}
+
+// ------------------------- Logged-in hub -------------------------
+$user      = current_user();
+$pageTitle = 'Home';
+$bodyClass = '';
+
+$field  = admin_field($user) ?? user_field($user);
+$notifCount = unread_count($pdo, (int)$user['id']);
+
+require __DIR__ . '/includes/header.php';
+?>
+
+<div class="dash-head">
+  <div>
+    <h1 class="page-title">Welcome, <?= e(first_name($user['name'])) ?> <?= $field !== null ? '· ' . e($field) : '' ?></h1>
+    <p class="page-sub">Choose where to go — everything is one click away.</p>
+  </div>
+</div>
+
+<div class="hub-grid">
+  <a class="card hub-card" href="my-field.php">
+    <span class="hub-icon"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span>
+    <h3><?= $field !== null ? e($field) : 'My Field Concerns' ?></h3>
+    <p>Only posts related to your field — all filtered out for you. Report about your area show up here the moment they're filed.</p>
+    <span class="hub-cta">Open my field ›</span>
+  </a>
+
+  <a class="card hub-card" href="dashboard.php#general">
+    <span class="hub-icon"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></span>
+    <h3>General Posts</h3>
+    <p>Browse all approved posts from every field on campus — from broken ACs to exam schedules and more.</p>
+    <span class="hub-cta">Browse all posts ›</span>
+  </a>
+
+  <a class="card hub-card" href="submit.php">
+    <span class="hub-icon"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>
+    <h3>Submit Feedback</h3>
+    <p>Raise a new concern with an image, video or audio attachment. Anonymous posting is available.</p>
+    <span class="hub-cta">Create a post ›</span>
+  </a>
+</div>
+
+<div class="hub-quicklinks">
+  <a class="btn btn-outline" href="dashboard.php">My dashboard</a>
+  <?php if (is_admin()): ?>
+  <a class="btn btn-outline" href="admin/dashboard.php">Admin panel</a>
+  <?php endif; ?>
+  <?php if (is_super_admin()): ?>
+  <a class="btn btn-outline" href="admin/users.php">User management</a>
+  <?php endif; ?>
+</div>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>
