@@ -15,7 +15,7 @@ USE oct_feedback;
 -- TABLES
 -- ---------------------------------------------------------------------------
 
--- Users (Students / Faculty / Staff / Admins)
+-- Users (Super Admin / Field Admins / Students / Faculty / Staff)
 CREATE TABLE IF NOT EXISTS users (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   id_number   VARCHAR(30)  NOT NULL UNIQUE,           -- school ID number
@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS users (
   email       VARCHAR(120) NOT NULL UNIQUE,
   password    VARCHAR(255) NOT NULL,                  -- bcrypt hash
   department  VARCHAR(100) NOT NULL DEFAULT '',       -- course / department / office
-  role        ENUM('student','faculty','staff','admin') NOT NULL DEFAULT 'student',
+  role        ENUM('student','faculty','staff','admin','super_admin') NOT NULL DEFAULT 'student',
+  field_scope VARCHAR(30)  DEFAULT NULL,              -- admin only: maintenance|academic|safety|social|others
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -79,32 +80,54 @@ CREATE TABLE IF NOT EXISTS notifications (
   CONSTRAINT fk_notif_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Media attachments per feedback (images / videos / audio)
+CREATE TABLE IF NOT EXISTS feedback_attachments (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  feedback_id INT UNSIGNED NOT NULL,
+  file_path   VARCHAR(255) NOT NULL,
+  media_kind  ENUM('image','video','audio') NOT NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_attach_feedback FOREIGN KEY (feedback_id) REFERENCES feedbacks(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ---------------------------------------------------------------------------
 -- SEED DATA  (demo accounts + sample tickets so the app is demo-ready)
 --
---  Default admin :  admin@oct.edu.ph      password: admin123
---  Demo students :  juan.delacruz@oct.edu.ph / maria.santos@oct.edu.ph / etc.
---                   password: student123
+-- ----------------------------------------------------------------------------
+--  Default accounts (demo)
+--
+--  Super Admin        : admin@oct.edu.ph          password: superadmin123
+--  Maintenance Admin  : grace.mendez@oct.edu.ph   password: superadmin123 (field: maintenance)
+--  Maintenance Staff  : marco.torres@oct.edu.ph   password: student123
+--  Staff (Registrar)  : ana.lopez@oct.edu.ph      password: student123
+--  Faculty            : pedro.reyes@oct.edu.ph    password: student123
+--  Students           : juan.delacruz / maria.santos @oct.edu.ph   password: student123
 --
 --  To start with a CLEAN database, just skip this section.
 -- ---------------------------------------------------------------------------
 
-INSERT INTO users (id, id_number, name, email, password, department, role) VALUES
+INSERT INTO users (id, id_number, name, email, password, department, role, field_scope) VALUES
 (1, 'ADM-0001', 'System Administrator', 'admin@oct.edu.ph',
- '$2y$12$LwFftRIDMFbp0RUh7kD3EOgSNPZTQMfyxg99zv3Qr9v8mnTDjkg6K',   -- admin123
- 'Office of Student Affairs', 'admin'),
+ '$2y$12$LwFftRIDMFbp0RUh7kD3EOgSNPZTQMfyxg99zv3Qr9v8mnTDjkg6K',   -- superadmin123
+ 'Office of the President', 'super_admin', NULL),
 (2, '2023-0142', 'Juan Dela Cruz', 'juan.delacruz@oct.edu.ph',
  '$2y$12$TW9Z0kGn4BJO5x.aDuuthOv.665SGzKxb7ycZZna6xT5pRNOKOh0e',   -- student123
- 'BS Computer Science', 'student'),
+ 'BS Computer Science', 'student', NULL),
 (3, '2023-0871', 'Maria Santos', 'maria.santos@oct.edu.ph',
  '$2y$12$TW9Z0kGn4BJO5x.aDuuthOv.665SGzKxb7ycZZna6xT5pRNOKOh0e',   -- student123
- 'BS Information Technology', 'student'),
+ 'BS Information Technology', 'student', NULL),
 (4, '2022-0056', 'Pedro Reyes', 'pedro.reyes@oct.edu.ph',
  '$2y$12$TW9Z0kGn4BJO5x.aDuuthOv.665SGzKxb7ycZZna6xT5pRNOKOh0e',   -- student123
- 'College of Engineering', 'faculty'),
+ 'College of Engineering', 'faculty', NULL),
 (5, '2023-0033', 'Ana Lopez', 'ana.lopez@oct.edu.ph',
  '$2y$12$TW9Z0kGn4BJO5x.aDuuthOv.665SGzKxb7ycZZna6xT5pRNOKOh0e',   -- student123
- 'Registrar Office', 'staff');
+ 'Registrar Office', 'staff', NULL),
+(6, 'STA-0011', 'Marco Torres', 'marco.torres@oct.edu.ph',
+ '$2y$12$TW9Z0kGn4BJO5x.aDuuthOv.665SGzKxb7ycZZna6xT5pRNOKOh0e',   -- student123
+ 'Maintenance Department', 'staff', NULL),
+(7, 'ADM-0002', 'Grace Mendez', 'grace.mendez@oct.edu.ph',
+ '$2y$12$LwFftRIDMFbp0RUh7kD3EOgSNPZTQMfyxg99zv3Qr9v8mnTDjkg6K',   -- superadmin123
+ 'Maintenance Office', 'admin', 'maintenance');
 
 INSERT INTO feedbacks (id, ticket_no, user_id, category, title, description, is_anonymous, status, assigned_dept, is_public, created_at) VALUES
 (1, 'TKT-001', 2, 'Facility / Maintenance', 'Broken air conditioner in Room 204',

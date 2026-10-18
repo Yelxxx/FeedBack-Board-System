@@ -20,6 +20,13 @@ $q        = trim((string)($_GET['q'] ?? ''));
 $where  = [];
 $params = [];
 
+// ---- Scope: field admins only see their field's tickets ---------------------
+$myField = admin_field($_SESSION['user']);
+if ($myField !== null) {
+    $where[] = 'f.category = ?';
+    $params[] = $myField;
+}
+
 if (array_key_exists($status, STATUS_LABELS)) {
     $where[] = 'f.status = ?';
     $params[] = $status;
@@ -62,7 +69,7 @@ require __DIR__ . '/../includes/header.php';
 
 <div class="dash-head">
   <div>
-    <h1 class="page-title">Ticket Management</h1>
+    <h1 class="page-title"><?= $myField !== null ? e($myField) . ' Posts' : 'Post Management' ?></h1>
     <p class="page-sub"><?= count($tickets) ?> ticket(s)<?= $hasFilter ? ' matching your filters' : ' total' ?>.</p>
   </div>
 </div>

@@ -39,15 +39,41 @@ define('CATEGORIES', [
 define('DEPARTMENTS', [
     'OSA', 'HR', 'Maintenance', 'Guidance', 'Registrar', 'IT Office', "Dean's Office",
 ]);
+
+// ---- Roles & field scoping -------------------------------------------------
+// Roles:
+//   super_admin  — full access to everything, no field bias; manages users &
+//                  permissions; analyzes all data across the campus.
+//   admin        — departmental admin. Sees ONLY posts whose category matches
+//                  their field (see field_scope below). Can still create posts.
+//   staff        — end user who CAN create posts (e.g. Maintenance staff). Sees
+//                  own posts on My Posts + all general (public) posts.
+//   faculty, student — end users (submit feedback, track tickets).
+// FIELD_SCOPES maps a "field" to the category it owns. A departmental admin's
+// role.field_scope value matches one key here; their ticket list is filtered to
+// the mapped category. super_admin has no scope (sees everything).
+define('FIELD_SCOPES', [
+    'maintenance' => 'Facility / Maintenance',  // e.g. Maintenance office admin
+    'academic'    => 'Academic',                // e.g. Registrar / Dean's Office
+    'safety'      => 'Environment / Safety',    // e.g. HR / Security
+    'social'      => 'Social / Behavioral',     // e.g. Guidance / OSA
+    'others'      => 'Others',                  // general catch-all
+]);
+define('ROLES', ['super_admin', 'admin', 'staff', 'faculty', 'student']);
 define('STATUS_LABELS', [
     'pending'       => 'Pending',
     'under_review'  => 'Under Review',
     'resolved'      => 'Resolved',
+    'rejected'      => 'Rejected',
 ]);
+// Statuses that represent an actual moderation action (super admin cannot
+// normally be set directly by field admins).
+define('ADMIN_ONLY_STATUSES', ['rejected']);
 
 // ---- File uploads --------------------------------------------------------------
 define('UPLOAD_DIR', __DIR__ . '/uploads');
-define('MAX_UPLOAD_MB', 5);
+define('MAX_UPLOAD_MB', 5);          // per-file size limit
+define('MAX_FILES_PER_POST', 3);     // attachments per feedback post
 
 // ---- Security -------------------------------------------------------------------
 // DEMO_MODE = true  -> password-reset links are printed on screen (no mail server needed).
@@ -56,6 +82,9 @@ define('MAX_UPLOAD_MB', 5);
 define('DEMO_MODE', true);
 define('MAX_LOGIN_ATTEMPTS', 5);
 define('LOGIN_LOCK_MINUTES', 15);
+// Hash used to seed the super admin demo password in database.sql.
+// Password: superadmin123
+define('SUPER_ADMIN_SEED_HASH', '$2y$12$3U1if8uMAeI4n.6ag5OjVO8cZ021RlAMb9JJuy19zPf7MOsfpar4m');
 
 // ---- Session ---------------------------------------------------------------------
 if (session_status() === PHP_SESSION_NONE) {

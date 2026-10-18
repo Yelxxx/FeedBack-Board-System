@@ -20,22 +20,24 @@ foreach ($stmt as $row) {
 }
 $total = array_sum($counts);
 
-// The user's own tickets
+// The user's own posts
 $stmt = $pdo->prepare(
     'SELECT * FROM feedbacks WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 8'
 );
 $stmt->execute([(int)$user['id']]);
 $myTickets = $stmt->fetchAll();
 
-// Public board feed (everyone's approved feedback)
-$publicFeed = $pdo->query(
+// General posts: approved feedback from OTHER users, across all fields
+$stmt = $pdo->prepare(
     "SELECT f.*, u.name
      FROM feedbacks f
      JOIN users u ON u.id = f.user_id
-     WHERE f.is_public = 1
+     WHERE f.is_public = 1 AND f.user_id <> ?
      ORDER BY f.created_at DESC, f.id DESC
-     LIMIT 6"
-)->fetchAll();
+     LIMIT 8"
+);
+$stmt->execute([(int)$user['id']]);
+$generalPosts = $stmt->fetchAll();
 
 require __DIR__ . '/includes/header.php';
 ?>
@@ -43,7 +45,10 @@ require __DIR__ . '/includes/header.php';
 <div class="dash-head">
   <div>
     <h1 class="page-title">Welcome back, <?= e(first_name($user['name'])) ?>!</h1>
-    <p class="page-sub">Here's the status of your feedback.</p>
+    <p class="page-sub">
+      <?= e(role_label($user['role'])) ?>
+      <?php if (($field = admin_field($user)) !== null): ?> · Field: <strong><?= e($field) ?></strong><?php endif; ?>
+    </p>
   </div>
   <a class="btn btn-primary btn-lg" href="submit.php">+ Submit Feedback</a>
 </div>
@@ -82,8 +87,8 @@ require __DIR__ . '/includes/header.php';
 <div class="dash-grid">
   <div class="dash-col">
     <div class="section-head">
-      <h2>My Tickets</h2>
-      <p>Track the status of your submitted concerns.</p>
+      <h2>My Posts</h2>
+      <p>Track the status of the posts you created.</p>
     </div>
 
     <?php if (empty($myTickets)): ?>
@@ -118,18 +123,18 @@ require __DIR__ . '/includes/header.php';
 
   <div class="dash-col">
     <div class="section-head">
-      <h2>Public Board</h2>
-      <p>What others are reporting (approved for public viewing).</p>
+      <h2>General Posts</h2>
+      <p>Feedback from other users across every field, approved for public viewing.</p>
     </div>
 
-    <?php if (empty($publicFeed)): ?>
+    <?php if (empty($generalPosts)): ?>
       <div class="card empty-state small">
         <div class="empty-emoji"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
-        <p>No public feedback yet.</p>
+        <p>No general posts yet.</p>
       </div>
     <?php else: ?>
       <div class="feed-list">
-        <?php foreach ($publicFeed as $item): ?>
+        <?php foreach ($generalPosts as $item): ?>
         <article class="card feed-item">
           <div class="feed-top">
             <?= category_badge($item['category']) ?>

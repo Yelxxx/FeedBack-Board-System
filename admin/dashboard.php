@@ -10,40 +10,64 @@ $base      = '../';
 $pageTitle = 'Admin Dashboard';
 $active    = 'admin';
 
+// ---- Scope: field admins see ONLY their own field; super admin sees everything
+$myField = admin_field($_SESSION['user']);
+$scopeTitle = $myField !== null
+    ? 'Overview of "' . $myField . '" field feedback.'
+    : 'Overview of all feedback across the campus.';
+
 // ---- Stats ----
+$scopeStmt = $pdo->prepare('SELECT COUNT(*) FROM feedbacks' . ($myField !== null ? ' WHERE category = ?' : ''));
+if ($myField !== null) { $scopeStmt->execute([$myField]); }
+
 $stats = [
-    'total'         => (int)$pdo->query('SELECT COUNT(*) FROM feedbacks')->fetchColumn(),
-    'pending'       => (int)$pdo->query("SELECT COUNT(*) FROM feedbacks WHERE status = 'pending'")->fetchColumn(),
-    'under_review'  => (int)$pdo->query("SELECT COUNT(*) FROM feedbacks WHERE status = 'under_review'")->fetchColumn(),
-    'resolved'      => (int)$pdo->query("SELECT COUNT(*) FROM feedbacks WHERE status = 'resolved'")->fetchColumn(),
-    'anonymous'     => (int)$pdo->query('SELECT COUNT(*) FROM feedbacks WHERE is_anonymous = 1')->fetchColumn(),
-    'users'         => (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role <> 'admin'")->fetchColumn(),
+    'total'         => $myField !== null ? (int)$scopeStmt->fetchColumn() : (int)$pdo->query('SELECT COUNT(*) FROM feedbacks')->fetchColumn(),
 ];
+$statQueries = [
+    'pending'       => "SELECT COUNT(*) FROM feedbacks WHERE status = 'pending'" . ($myField !== null ? ' AND category = ?' : ''),
+    'under_review'  => "SELECT COUNT(*) FROM feedbacks WHERE status = 'under_review'" . ($myField !== null ? ' AND category = ?' : ''),
+    'resolved'      => "SELECT COUNT(*) FROM feedbacks WHERE status = 'resolved'" . ($myField !== null ? ' AND category = ?' : ''),
+    'anonymous'     => 'SELECT COUNT(*) FROM feedbacks WHERE is_anonymous = 1' . ($myField !== null ? ' AND category = ?' : ''),
+];
+foreach ($statQueries as $key => $sql) {
+    $st = $pdo->prepare($sql);
+    if ($myField !== null) { $st->execute([$myField]); } else { $st->execute(); }
+    $stats[$key] = (int)$st->fetchColumn();
+}
+$stats['users'] = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role NOT IN ('admin', 'super_admin')")->fetchColumn();
 
-// ---- Charts: complaints by category ----
-$byCategory = $pdo->query(
-    'SELECT category, COUNT(*) AS c FROM feedbacks GROUP BY category ORDER BY c DESC'
-)->fetchAll();
+// ---- Charts: complaints by category (scoped) ----
+$st = $pdo->prepare(
+    'SELECT category, COUNT(*) AS c FROM feedbacks' . ($myField !== null ? ' WHERE category = ?' : '') . ' GROUP BY category ORDER BY c DESC'
+);
+if ($myField !== null) { $st->execute([$myField]); } else { $st->execute(); }
+$byCategory = $st->fetchAll();
 
-// ---- Charts: complaints by reporter department ----
-$byDept = $pdo->query(
+// ---- Charts: complaints by reporter department (scoped) ----
+$st = $pdo->prepare(
     'SELECT u.department AS dept, COUNT(*) AS c
      FROM feedbacks f
-     JOIN users u ON u.id = f.user_id
-     GROUP BY u.department
+     JOIN users u ON u.id = f.user_id' .
+     ($myField !== null ? ' WHERE f.category = ?' : '') .
+    ' GROUP BY u.department
      ORDER BY c DESC
      LIMIT 6'
-)->fetchAll();
+);
+if ($myField !== null) { $st->execute([$myField]); } else { $st->execute(); }
+$byDept = $st->fetchAll();
 
-// ---- Charts: complaints by assigned office ----
-$byAssigned = $pdo->query(
+// ---- Charts: workload by assigned office (scoped) ----
+$st = $pdo->prepare(
     'SELECT assigned_dept AS dept, COUNT(*) AS c
      FROM feedbacks
-     WHERE assigned_dept IS NOT NULL
-     GROUP BY assigned_dept
+     WHERE assigned_dept IS NOT NULL' .
+     ($myField !== null ? ' AND category = ?' : '') .
+    ' GROUP BY assigned_dept
      ORDER BY c DESC
      LIMIT 6'
-)->fetchAll();
+);
+if ($myField !== null) { $st->execute([$myField]); } else { $st->execute(); }
+$byAssigned = $st->fetchAll();
 
 $categoryCounts = array_column($byCategory, 'c');
 $maxCategory = $categoryCounts ? max($categoryCounts) : 1;
@@ -54,24 +78,27 @@ $maxDept     = $deptCounts ? max($deptCounts) : 1;
 $assignedCounts = array_column($byAssigned, 'c');
 $maxAssigned = $assignedCounts ? max($assignedCounts) : 1;
 
-// ---- Recent tickets ----
-$recent = $pdo->query(
+// ---- Recent tickets (scoped) ----
+$st = $pdo->prepare(
     "SELECT f.*, u.name
      FROM feedbacks f
-     JOIN users u ON u.id = f.user_id
-     ORDER BY f.created_at DESC, f.id DESC
+     JOIN users u ON u.id = f.user_id" .
+     ($myField !== null ? ' WHERE f.category = ?' : '') .
+    " ORDER BY f.created_at DESC, f.id DESC
      LIMIT 7"
-)->fetchAll();
+);
+if ($myField !== null) { $st->execute([$myField]); } else { $st->execute(); }
+$recent = $st->fetchAll();
 
 require __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="dash-head">
   <div>
-    <h1 class="page-title">Admin Dashboard</h1>
-    <p class="page-sub">Overview of all feedback across the campus.</p>
+    <h1 class="page-title"><?= $myField !== null ? e($myField) . ' Admin' : 'Super Admin Dashboard' ?></h1>
+    <p class="page-sub"><?= e($scopeTitle) ?></p>
   </div>
-  <a class="btn btn-primary btn-lg" href="tickets.php">Manage tickets</a>
+  <a class="btn btn-primary btn-lg" href="tickets.php">Manage posts</a>
 </div>
 
 <div class="stat-grid">

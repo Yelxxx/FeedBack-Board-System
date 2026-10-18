@@ -88,21 +88,42 @@
       anon.addEventListener('change', sync);
     }
 
-    /* ---- File input: name + preview ---- */
+    /* ---- Multi-file media input: names + thumbnails ---- */
     var fileInput = document.getElementById('imageInput');
     if (fileInput) {
+      var maxFiles = parseInt(fileInput.getAttribute('data-max-files') || '3', 10);
+      var maxMbAttr = document.body.getAttribute('data-max-upload') || '5';
+      fileInput.setAttribute('data-max-files', maxFiles);
       fileInput.addEventListener('change', function () {
-        var file = fileInput.files[0];
         var nameEl = document.getElementById('fileName');
-        var preview = document.getElementById('imagePreview');
-        var maxMb = document.body.getAttribute('data-max-upload') || '5';
-        if (nameEl) nameEl.textContent = file ? file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)' : 'Choose an image (max ' + maxMb + ' MB)';
-        if (preview) {
-          if (file && file.type.indexOf('image/') === 0) {
-            preview.src = URL.createObjectURL(file);
-            preview.hidden = false;
-          } else {
-            preview.hidden = true;
+        var wrap = document.getElementById('mediaPreview');
+        var files = Array.prototype.slice.call(fileInput.files).slice(0, maxFiles);
+        if (nameEl) {
+          nameEl.textContent = files.length
+            ? files.length + ' file(s) selected (max ' + maxFiles + ', ' + maxMbAttr + ' MB each)'
+            : 'Choose files (max ' + maxMbAttr + ' MB each, ' + maxFiles + ' max)';
+        }
+        if (wrap) {
+          wrap.innerHTML = '';
+          files.forEach(function (file) {
+            var name = document.createElement('span');
+            name.className = 'chip-name';
+            name.textContent = file.name;
+            if (file.type.indexOf('image/') === 0) {
+              var img = document.createElement('img');
+              img.className = 'media-thumb';
+              img.alt = file.name;
+              img.src = URL.createObjectURL(file);
+              wrap.appendChild(img);
+            } else {
+              var chip = document.createElement('span');
+              chip.className = 'media-chip';
+              chip.appendChild(name);
+              wrap.appendChild(chip);
+            }
+          });
+          if (fileInput.files.length > maxFiles && nameEl) {
+            nameEl.textContent += ' — only the first ' + maxFiles + ' will be uploaded';
           }
         }
       });

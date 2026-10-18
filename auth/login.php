@@ -95,7 +95,9 @@ require __DIR__ . '/../includes/auth_open.php';
     <p class="demo-title">Demo accounts — tap to fill</p>
     <p>Try the system as any end user:</p>
     <div class="demo-btns">
-        <button type="button" class="btn btn-demo" data-demo-email="admin@oct.edu.ph" data-demo-password="admin123">Admin</button>
+        <button type="button" class="btn btn-demo" data-demo-email="admin@oct.edu.ph" data-demo-password="superadmin123">Super Admin</button>
+        <button type="button" class="btn btn-demo" data-demo-email="grace.mendez@oct.edu.ph" data-demo-password="superadmin123">Field Admin</button>
+        <button type="button" class="btn btn-demo" data-demo-email="marco.torres@oct.edu.ph" data-demo-password="student123">Staff</button>
         <button type="button" class="btn btn-demo" data-demo-email="juan.delacruz@oct.edu.ph" data-demo-password="student123">Student</button>
         <button type="button" class="btn btn-demo" data-demo-email="pedro.reyes@oct.edu.ph" data-demo-password="student123">Faculty</button>
         <button type="button" class="btn btn-demo" data-demo-email="ana.lopez@oct.edu.ph" data-demo-password="student123">Staff</button>

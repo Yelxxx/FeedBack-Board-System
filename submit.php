@@ -39,41 +39,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'The description must be 5000 characters or less.';
     }
 
-    // Optional photo upload
-    $imagePath = null;
-    $upload = handle_image_upload($_FILES['image'] ?? []);
-    if (is_array($upload)) {
-        $errors = array_merge($errors, $upload);
-    } elseif ($upload !== null) {
-        $imagePath = $upload;
+    // Optional media attachments (images / videos / audio, up to MAX_FILES_PER_POST)
+    $attachments   = [];      // [ ['path'=>.., 'kind'=>..], .. ]
+    $invalidUploads = $_FILES['attachments'] ?? [];
+    if (isset($_FILES['attachments']) && is_array($_FILES['attachments']['name'])) {
+        $fileCount = count($_FILES['attachments']['name']);
+        if ($fileCount > MAX_FILES_PER_POST) {
+            $errors[] = 'You can attach up to ' . MAX_FILES_PER_POST . ' files per post.';
+        }
+        for ($i = 0; $i < min($fileCount, MAX_FILES_PER_POST); $i++) {
+            $one = [
+                'name'     => $_FILES['attachments']['name'][$i],
+                'type'     => $_FILES['attachments']['type'][$i],
+                'tmp_name' => $_FILES['attachments']['tmp_name'][$i],
+                'error'    => $_FILES['attachments']['error'][$i],
+                'size'     => $_FILES['attachments']['size'][$i],
+            ];
+            $kind = null;
+            $up  = handle_media_upload($one, $kind);
+            if (is_array($up)) {
+                $errors = array_merge($errors, $up);
+            } elseif ($up !== null) {
+                $attachments[] = ['path' => $up, 'kind' => $kind];
+            }
+        }
     }
 
     if (empty($errors)) {
         $ticketNo = next_ticket_no($pdo);
 
-        $stmt = $pdo->prepare(
-            'INSERT INTO feedbacks (ticket_no, user_id, category, title, description, image_path, is_anonymous)
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
-        );
-        $stmt->execute([
-            $ticketNo,
-            (int)$user['id'],
-            $old['category'],
-            $old['title'],
-            $old['description'],
-            $imagePath,
-            $old['is_anonymous'],
-        ]);
-        $feedbackId = (int)$pdo->lastInsertId();
+        try {
+            $pdo->beginTransaction();
 
-        notify_admins(
-            $pdo,
-            'New ' . ($old['is_anonymous'] ? 'anonymous ' : '') . 'feedback submitted: ' . $ticketNo,
-            $feedbackId
-        );
+            $stmt = $pdo->prepare(
+                'INSERT INTO feedbacks (ticket_no, user_id, category, title, description, is_anonymous)
+                 VALUES (?, ?, ?, ?, ?, ?)'
+            );
+            $stmt->execute([
+                $ticketNo,
+                (int)$user['id'],
+                $old['category'],
+                $old['title'],
+                $old['description'],
+                $old['is_anonymous'],
+            ]);
+            $feedbackId = (int)$pdo->lastInsertId();
 
-        flash_set('success', 'Feedback submitted! Your ticket number is ' . $ticketNo . '. You can track it from your dashboard.');
-        redirect('ticket.php?id=' . $feedbackId);
+            $attStmt = $pdo->prepare(
+                'INSERT INTO feedback_attachments (feedback_id, file_path, media_kind) VALUES (?, ?, ?)'
+            );
+            foreach ($attachments as $a) {
+                $attStmt->execute([$feedbackId, $a['path'], $a['kind']]);
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            // Clean up any files saved during this request
+            foreach ($attachments as $a) {
+                @unlink(UPLOAD_DIR . '/' . $a['path']);
+            }
+            error_log('Feedback insert failed: ' . $e->getMessage());
+            $errors[] = 'Something went wrong saving your post. Please try again.';
+        }
+
+        if (empty($errors)) {
+            notify_admins(
+                $pdo,
+                'New ' . ($old['is_anonymous'] ? 'anonymous ' : '') . 'feedback submitted: ' . $ticketNo,
+                $feedbackId
+            );
+
+            flash_set('success', 'Feedback submitted! Your ticket number is ' . $ticketNo . '. You can track it from your dashboard.');
+            redirect('ticket.php?id=' . $feedbackId);
+        }
     }
 }
 
@@ -140,20 +179,21 @@ require __DIR__ . '/includes/header.php';
         <p class="field-hint counter"><span id="descCount">0 / 5000</span></p>
     </fieldset>
 
-    <!-- 4. Attachment -->
+    <!-- 4. Attachments -->
     <fieldset class="form-section">
-        <legend>4 · Photo / File Attachment <span class="opt">(optional)</span></legend>
+        <legend>4 · Attachments <span class="opt">(optional, up to <?= MAX_FILES_PER_POST ?> files)</span></legend>
         <label class="file-input">
-            <input type="file" id="imageInput" name="image" accept=".jpg,.jpeg,.png,.gif,.webp">
+            <input type="file" id="imageInput" name="attachments[]" multiple
+                   accept=".jpg,.jpeg,.png,.gif,.webp,.mp4,.webm,.mov,.mp3,.wav,.ogg,.m4a">
             <span class="file-input-inner">
-                <span class="file-upload-icon"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
+                <span class="file-upload-icon"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></span>
                 <span class="file-upload-text">
-                    <span id="fileName">Choose an image (max <?= MAX_UPLOAD_MB ?> MB)</span>
-                    <span class="file-upload-sub">JPG, PNG, GIF or WEBP — e.g. a photo of the damaged facility</span>
+                    <span id="fileName">Choose files (max <?= MAX_UPLOAD_MB ?> MB each, <?= MAX_FILES_PER_POST ?> max)</span>
+                    <span class="file-upload-sub">Images (JPG, PNG, GIF, WEBP) · Videos (MP4, WEBM, MOV) · Audio (MP3, WAV, OGG, M4A)</span>
                 </span>
             </span>
         </label>
-        <img id="imagePreview" class="image-preview" alt="Preview" hidden>
+        <div id="mediaPreview" class="media-preview"></div>
     </fieldset>
 
     <!-- 5. Anonymous -->

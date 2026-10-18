@@ -107,13 +107,9 @@ require __DIR__ . '/includes/header.php';
       <h2 class="panel-title">Description</h2>
       <p class="panel-text"><?= nl2br(e($ticket['description'])) ?></p>
 
-      <?php if ($ticket['image_path']): ?>
-        <figure class="attachment">
-          <img src="uploads/<?= e($ticket['image_path']) ?>" alt="Attachment" class="attachment-img"
-               onclick="window.open(this.src,'_blank')">
-          <figcaption>Attachment — click to enlarge</figcaption>
-        </figure>
-      <?php endif; ?>
+      <?php foreach (fetch_attachments($pdo, (int)$ticket['id']) as $a): ?>
+        <?= attachment_html($a) ?>
+      <?php endforeach; ?>
     </div>
 
     <!-- Comments -->
@@ -125,12 +121,13 @@ require __DIR__ . '/includes/header.php';
       <?php else: ?>
         <div class="comment-list">
           <?php foreach ($comments as $c): ?>
-          <div class="comment <?= $c['role'] === 'admin' ? 'comment-admin' : '' ?>">
+          <div class="comment <?= in_array($c['role'], ['admin', 'super_admin'], true) ? 'comment-admin' : '' ?>">
             <span class="avatar"><?= e(initials($c['name'])) ?></span>
             <div class="comment-body">
               <div class="comment-meta">
                 <strong><?= e($c['name']) ?></strong>
-                <?php if ($c['role'] === 'admin'): ?><span class="badge badge-admin">Admin</span><?php endif; ?>
+                <?php if ($c['role'] === 'super_admin'): ?><span class="badge badge-admin">Super Admin</span>
+                <?php elseif ($c['role'] === 'admin'): ?><span class="badge badge-admin">Admin</span><?php endif; ?>
                 <span class="comment-time"><?= e(time_ago($c['created_at'])) ?></span>
               </div>
               <p class="comment-text"><?= nl2br(e($c['message'])) ?></p>

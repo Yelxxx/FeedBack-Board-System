@@ -19,6 +19,15 @@ if ($ticket === null) {
     redirect('tickets.php');
 }
 
+// ---- Field-permission gate -------------------------------------------------
+// Departmental admins manage only the tickets inside their assigned field.
+// The super admin has overall access with no field bias.
+$myField = admin_field($_SESSION['user']);
+if ($myField !== null && $ticket['category'] !== $myField) {
+    flash_set('error', 'This ticket belongs to another field. You can only manage "' . $myField . '" posts.');
+    redirect('tickets.php');
+}
+
 // ---- Handle actions ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_verify()) {
@@ -95,10 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
 
             case 'delete':
-                // Remove the attached image file (if any) to avoid orphans.
-                if (!empty($ticket['image_path']) && is_file(UPLOAD_DIR . '/' . $ticket['image_path'])) {
-                    @unlink(UPLOAD_DIR . '/' . $ticket['image_path']);
-                }
+                delete_attachments($pdo, (int)$ticket['id']);
                 $del = $pdo->prepare('DELETE FROM feedbacks WHERE id = ?');
                 $del->execute([(int)$ticket['id']]);
                 flash_set('success', 'Ticket ' . $ticket['ticket_no'] . ' deleted.');
@@ -164,13 +170,9 @@ require __DIR__ . '/../includes/header.php';
     <div class="card panel">
       <h2 class="panel-title">Description</h2>
       <p class="panel-text"><?= nl2br(e($ticket['description'])) ?></p>
-      <?php if ($ticket['image_path']): ?>
-        <figure class="attachment">
-          <img src="<?= e($base) ?>uploads/<?= e($ticket['image_path']) ?>" alt="Attachment" class="attachment-img"
-               onclick="window.open(this.src,'_blank')">
-          <figcaption>Attachment — click to enlarge</figcaption>
-        </figure>
-      <?php endif; ?>
+      <?php foreach (fetch_attachments($pdo, (int)$ticket['id']) as $a): ?>
+        <?= attachment_html($a, $base) ?>
+      <?php endforeach; ?>
     </div>
 
     <!-- Comments -->
@@ -181,12 +183,13 @@ require __DIR__ . '/../includes/header.php';
       <?php else: ?>
         <div class="comment-list">
           <?php foreach ($comments as $c): ?>
-          <div class="comment <?= $c['role'] === 'admin' ? 'comment-admin' : '' ?> <?= $c['visibility'] === 'private' ? 'comment-private' : '' ?>">
+          <div class="comment <?= in_array($c['role'], ['admin', 'super_admin'], true) ? 'comment-admin' : '' ?> <?= $c['visibility'] === 'private' ? 'comment-private' : '' ?>">
             <span class="avatar"><?= e(initials($c['name'])) ?></span>
             <div class="comment-body">
               <div class="comment-meta">
                 <strong><?= e($c['name']) ?></strong>
-                <?php if ($c['role'] === 'admin'): ?><span class="badge badge-admin">Admin</span><?php endif; ?>
+                <?php if ($c['role'] === 'super_admin'): ?><span class="badge badge-admin">Super Admin</span>
+                <?php elseif ($c['role'] === 'admin'): ?><span class="badge badge-admin">Admin</span><?php endif; ?>
                 <?php if ($c['visibility'] === 'private'): ?><span class="badge badge-private">Private note</span><?php endif; ?>
                 <span class="comment-time"><?= e(time_ago($c['created_at'])) ?></span>
               </div>

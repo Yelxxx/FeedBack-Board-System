@@ -114,15 +114,65 @@ function require_admin(): void
         flash_set('error', 'Please log in to continue.');
         redirect('../auth/login.php');
     }
-    if (($user['role'] ?? '') !== 'admin') {
+    if (!in_array(($user['role'] ?? ''), ['admin', 'super_admin'], true)) {
         flash_set('error', 'Access denied. You do not have permission to view that page.');
         redirect('../dashboard.php');
     }
 }
 
+/** Super admin only (paths are relative to the admin/ folder). */
+function require_super_admin(): void
+{
+    $user = current_user();
+    if ($user === null) {
+        flash_set('error', 'Please log in to continue.');
+        redirect('../auth/login.php');
+    }
+    if (($user['role'] ?? '') !== 'super_admin') {
+        flash_set('error', 'Access denied. This area is restricted to the Super Admin.');
+        redirect('dashboard.php');
+    }
+}
+
 function is_admin(): bool
 {
-    return (current_user()['role'] ?? '') === 'admin';
+    return in_array((current_user()['role'] ?? ''), ['admin', 'super_admin'], true);
+}
+
+function is_super_admin(): bool
+{
+    return (current_user()['role'] ?? '') === 'super_admin';
+}
+
+/** Pretty label for a role slug. */
+function role_label(string $role): string
+{
+    $labels = [
+        'super_admin' => 'Super Admin',
+        'admin'       => 'Field Admin',
+        'staff'       => 'Staff',
+        'faculty'     => 'Faculty',
+        'student'     => 'Student',
+    ];
+    return $labels[$role] ?? $role;
+}
+
+/**
+ * The field a departmental admin controls, as a human-readable label.
+ * Reads the admin's stored field_scope key and maps it via FIELD_SCOPES.
+ * Super admin (and everyone else) returns null = no scope bias.
+ */
+function admin_field(array $user): ?string
+{
+    if (($user['role'] ?? '') !== 'admin') return null;
+    $scope = (string)($user['field_scope'] ?? '');
+    return FIELD_SCOPES[$scope] ?? null;
+}
+
+/** Category a field-scope key controls ('' when unknown). */
+function scope_category(string $scope): string
+{
+    return FIELD_SCOPES[$scope] ?? '';
 }
 
 // ---------------- CSRF protection ----------------
@@ -219,7 +269,19 @@ function notify_user(PDO $pdo, int $userId, string $message, ?int $feedbackId = 
 
 function notify_admins(PDO $pdo, string $message, ?int $feedbackId = null): void
 {
-    foreach ($pdo->query("SELECT id FROM users WHERE role = 'admin'") as $row) {
+    foreach ($pdo->query("SELECT id, role, field_scope FROM users WHERE role IN ('admin', 'super_admin')") as $row) {
+        // Field-bias elimination: departmental admins only get notified for
+        // posts inside their own field. Super admin sees everything.
+        if ($row['role'] === 'admin') {
+            $fieldCategory = FIELD_SCOPES[(string)$row['field_scope']] ?? null;
+            if ($fieldCategory !== null && $feedbackId !== null) {
+                $cat = $pdo->prepare('SELECT category FROM feedbacks WHERE id = ?');
+                $cat->execute([$feedbackId]);
+                if ((string)$cat->fetchColumn() !== $fieldCategory) {
+                    continue; // outside this admin's field — skip
+                }
+            }
+        }
         notify_user($pdo, (int)$row['id'], $message, $feedbackId);
     }
 }
@@ -286,4 +348,99 @@ function handle_image_upload(array $file)
         return ['Failed to save the uploaded file. Check that the uploads/ folder is writable.'];
     }
     return $filename;
+}
+
+// ---------------- Media attachments (img / video / audio) ----------------
+/** Media kinds accepted as feedback attachments. */
+function media_kind(string $ext): ?string
+{
+    static $map = [
+        'jpg' => 'image', 'jpeg' => 'image', 'png' => 'image', 'gif' => 'image', 'webp' => 'image',
+        'mp4' => 'video', 'webm' => 'video', 'mov' => 'video',
+        'mp3' => 'audio', 'wav' => 'audio', 'ogg' => 'audio', 'm4a' => 'audio',
+    ];
+    return $map[$ext] ?? null;
+}
+
+/**
+ * Validate and save one uploaded media file (image, video or audio).
+ * Returns null when no file was chosen; a string filename on success;
+ * or an array of error messages. On success also returns the media kind
+ * via the $kind by-reference parameter.
+ */
+function handle_media_upload(array $file, ?string &$kind = null)
+{
+    if (empty($file['name'])) {
+        return null;
+    }
+
+    $errors  = [];
+    $maxSize = MAX_UPLOAD_MB * 1024 * 1024;
+    $ext     = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        $errors[] = 'One of the files could not be uploaded. Please try again.';
+    }
+    if ($file['size'] > $maxSize) {
+        $errors[] = 'Files must not exceed ' . MAX_UPLOAD_MB . ' MB each.';
+    }
+    $possibleKind = media_kind($ext);
+    if ($possibleKind === null) {
+        $errors[] = 'File type ".' . $ext . '" is not allowed. Use images (JPG/PNG/GIF/WEBP), videos (MP4/WEBM/MOV) or audio (MP3/WAV/OGG/M4A).';
+    }
+
+    // Content sniffing: images must really be images; do not trust the extension alone.
+    if ($possibleKind === 'image' && @getimagesize($file['tmp_name']) === false) {
+        $errors[] = 'One file claims to be an image but is not a valid image.';
+    }
+
+    if ($errors) {
+        return $errors;
+    }
+
+    if (!is_dir(UPLOAD_DIR)) {
+        @mkdir(UPLOAD_DIR, 0777, true);
+    }
+    $filename = date('Ymd') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
+    if (!move_uploaded_file($file['tmp_name'], UPLOAD_DIR . '/' . $filename)) {
+        return ['Failed to save the uploaded file. Check that the uploads/ folder is writable.'];
+    }
+    $kind = $possibleKind;
+    return $filename;
+}
+
+/** All attachment rows for one feedback, in upload order. */
+function fetch_attachments(PDO $pdo, int $feedbackId): array
+{
+    $stmt = $pdo->prepare(
+        'SELECT id, file_path, media_kind FROM feedback_attachments WHERE feedback_id = ? ORDER BY id ASC'
+    );
+    $stmt->execute([$feedbackId]);
+    return $stmt->fetchAll();
+}
+
+/** Delete attachment files + rows for a feedback (called before the row is deleted). */
+function delete_attachments(PDO $pdo, int $feedbackId): void
+{
+    foreach (fetch_attachments($pdo, $feedbackId) as $a) {
+        $path = UPLOAD_DIR . '/' . basename($a['file_path']);
+        if (is_file($path)) @unlink($path);
+    }
+    $stmt = $pdo->prepare('DELETE FROM feedback_attachments WHERE feedback_id = ?');
+    $stmt->execute([$feedbackId]);
+}
+
+/** Render one attachment for display (image / video / audio player). */
+function attachment_html(array $a, string $base = ''): string
+{
+    $src = e($base . 'uploads/' . $a['file_path']);
+    switch ($a['media_kind']) {
+        case 'image':
+            return '<figure class="attachment"><img src="' . $src . '" alt="Attachment" class="attachment-img" onclick="window.open(this.src,\'_blank\')"><figcaption>Image attachment — click to enlarge</figcaption></figure>';
+        case 'video':
+            return '<figure class="attachment attachment-video"><video controls preload="metadata" class="attachment-media"><source src="' . $src . '">Your browser cannot play this video.</video><figcaption>Video attachment</figcaption></figure>';
+        case 'audio':
+            return '<figure class="attachment attachment-audio"><audio controls preload="metadata" class="attachment-media" src="' . $src . '">Your browser cannot play this audio.</audio><figcaption>Audio attachment</figcaption></figure>';
+    }
+    return '';
 }
