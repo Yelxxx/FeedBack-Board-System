@@ -15,6 +15,11 @@ $pageTitle = 'My Field Concerns';
 $active    = 'field';
 $user      = current_user();
 
+if (is_super_admin()) {
+    flash_set('info', 'Super Admin oversees all fields from the Ticket Management panel.');
+    redirect('admin/tickets.php');
+}
+
 $isStaffLevel    = is_admin();
 $field           = is_admin() ? admin_field($user) : user_field($user);
 

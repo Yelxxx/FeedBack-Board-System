@@ -149,8 +149,8 @@ function role_label(string $role): string
 {
     $labels = [
         'super_admin' => 'Super Admin',
-        'admin'       => 'Field Admin',
-        'staff'       => 'Staff',
+        'admin'       => 'Department Head (Admin)',
+        'staff'       => 'Staff / Maintenance',
         'faculty'     => 'Faculty',
         'student'     => 'Student',
     ];
@@ -289,19 +289,35 @@ function notify_user(PDO $pdo, int $userId, string $message, ?int $feedbackId = 
 
 function notify_admins(PDO $pdo, string $message, ?int $feedbackId = null): void
 {
-    foreach ($pdo->query("SELECT id, role, field_scope FROM users WHERE role IN ('admin', 'super_admin')") as $row) {
-        // Field-bias elimination: departmental admins only get notified for
-        // posts inside their own field. Super admin sees everything.
-        if ($row['role'] === 'admin') {
-            $fieldCategory = FIELD_SCOPES[(string)$row['field_scope']] ?? null;
-            if ($fieldCategory !== null && $feedbackId !== null) {
-                $cat = $pdo->prepare('SELECT category FROM feedbacks WHERE id = ?');
-                $cat->execute([$feedbackId]);
-                if ((string)$cat->fetchColumn() !== $fieldCategory) {
-                    continue; // outside this admin's field — skip
+    // Fetch Super Admins, Department Admins, and Staff
+    foreach ($pdo->query("SELECT id, role, field_scope, department FROM users WHERE role IN ('admin', 'super_admin', 'staff')") as $row) {
+        if ($row['role'] === 'super_admin') {
+            notify_user($pdo, (int)$row['id'], $message, $feedbackId);
+            continue;
+        }
+
+        // For Department Head (admin) or Staff / Maintenance:
+        // Match ticket category with their field
+        if ($feedbackId !== null) {
+            $catStmt = $pdo->prepare('SELECT category, assigned_dept FROM feedbacks WHERE id = ?');
+            $catStmt->execute([$feedbackId]);
+            $ticketData = $catStmt->fetch();
+            $ticketCat = (string)($ticketData['category'] ?? '');
+
+            if ($row['role'] === 'admin') {
+                $fieldCategory = FIELD_SCOPES[(string)$row['field_scope']] ?? null;
+                if ($fieldCategory !== null && $ticketCat !== $fieldCategory) {
+                    continue; // outside dept head's field
+                }
+            } elseif ($row['role'] === 'staff') {
+                $staffField = user_field($row);
+                // If staff belongs to maintenance and category is maintenance / facility, notify them
+                if ($staffField !== null && $ticketCat !== $staffField) {
+                    continue; // outside staff's field
                 }
             }
         }
+
         notify_user($pdo, (int)$row['id'], $message, $feedbackId);
     }
 }

@@ -126,6 +126,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     flash_set('error', 'Please type a comment first.');
                 } elseif (strlen($message) > 2000) {
                     flash_set('error', 'Comments must be 2000 characters or less.');
+                } elseif (ProfanityFilter::containsBadWord($message)) {
+                    $badWords = ProfanityFilter::findBadWords($message);
+                    flash_set('error', 'Comment contains inappropriate or explicit language (' . implode(', ', $badWords) . '). Please remain professional.');
                 } else {
                     $visibility = $visibility === 'private' ? 'private' : 'public';
                     $stmt = $pdo->prepare(

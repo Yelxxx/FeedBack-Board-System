@@ -14,14 +14,32 @@ $user = current_user();
 $id   = (int)($_GET['id'] ?? 0);
 $ticket = find_feedback($pdo, $id);
 
-// Users may only view their own tickets
-if ($ticket === null || (int)$ticket['user_id'] !== (int)$user['id']) {
-    flash_set('error', 'Ticket not found.');
+// Access control:
+// Can view if:
+// 1. Author of the ticket
+// 2. Super Admin
+// 3. Department Admin whose field matches the ticket category
+// 4. Staff / Maintenance whose department/field matches the ticket category
+// 5. Ticket is public
+$isAuthor = (int)$ticket['user_id'] === (int)$user['id'];
+$isSuper  = is_super_admin();
+$isAdminOfField = ($user['role'] === 'admin') && (admin_field($user) === null || admin_field($user) === $ticket['category']);
+$isStaffOfField = ($user['role'] === 'staff') && (user_field($user) === null || user_field($user) === $ticket['category']);
+$canComment = $isAuthor || $isSuper || $isAdminOfField || $isStaffOfField;
+$canView = $canComment || ((int)$ticket['is_public'] === 1);
+
+if (!$canView) {
+    flash_set('error', 'You do not have permission to view this ticket.');
     redirect('dashboard.php');
 }
 
 // Handle reply
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!$canComment) {
+        flash_set('error', 'Only the reporter, assigned staff/maintenance, and department heads can reply to this ticket thread.');
+        redirect('ticket.php?id=' . $ticket['id']);
+    }
+
     if (!csrf_verify()) {
         flash_set('error', 'Your session expired. Please try again.');
     } else {
@@ -30,12 +48,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash_set('error', 'Please type a message first.');
         } elseif (strlen($message) > 2000) {
             flash_set('error', 'Messages must be 2000 characters or less.');
+        } elseif (ProfanityFilter::containsBadWord($message)) {
+            $badWords = ProfanityFilter::findBadWords($message);
+            flash_set('error', 'Your comment contains inappropriate or explicit language (' . implode(', ', $badWords) . '). Please keep campus discussions respectful.');
         } else {
             $stmt = $pdo->prepare(
                 "INSERT INTO comments (feedback_id, user_id, message, visibility) VALUES (?, ?, ?, 'public')"
             );
             $stmt->execute([(int)$ticket['id'], (int)$user['id'], $message]);
-            notify_admins($pdo, 'New reply on ' . $ticket['ticket_no'] . ': "' . truncate($message, 60) . '"', (int)$ticket['id']);
+
+            // If the poster commented, notify staff & admins.
+            // If staff/admin commented, notify the poster!
+            if ($isAuthor) {
+                notify_admins($pdo, 'New reply on ' . $ticket['ticket_no'] . ': "' . truncate($message, 60) . '"', (int)$ticket['id']);
+            } else {
+                notify_user($pdo, (int)$ticket['user_id'], 'New response on ' . $ticket['ticket_no'] . ' from ' . $user['name'] . ': "' . truncate($message, 60) . '"', (int)$ticket['id']);
+            }
+
             flash_set('success', 'Your reply was posted.');
             redirect('ticket.php?id=' . $ticket['id']);
         }
@@ -120,14 +149,20 @@ require __DIR__ . '/includes/header.php';
         <p class="panel-empty">No comments yet. The admin will reply here once your concern is reviewed.</p>
       <?php else: ?>
         <div class="comment-list">
-          <?php foreach ($comments as $c): ?>
-          <div class="comment <?= in_array($c['role'], ['admin', 'super_admin'], true) ? 'comment-admin' : '' ?>">
+          <?php foreach ($comments as $c):
+              $isOfficial = in_array($c['role'], ['admin', 'super_admin', 'staff'], true);
+              $isStaffResp = ($c['role'] === 'staff');
+          ?>
+          <div class="comment <?= $isOfficial ? 'comment-admin' : '' ?>">
             <span class="avatar"><?= e(initials($c['name'])) ?></span>
             <div class="comment-body">
               <div class="comment-meta">
                 <strong><?= e($c['name']) ?></strong>
                 <?php if ($c['role'] === 'super_admin'): ?><span class="badge badge-admin">Super Admin</span>
-                <?php elseif ($c['role'] === 'admin'): ?><span class="badge badge-admin">Admin</span><?php endif; ?>
+                <?php elseif ($c['role'] === 'admin'): ?><span class="badge badge-admin">Department Head</span>
+                <?php elseif ($c['role'] === 'staff'): ?><span class="badge badge-admin" style="background:#0284c7;color:#fff;">Staff / Maintenance</span>
+                <?php elseif ($c['role'] === 'faculty'): ?><span class="badge badge-neutral">Faculty</span>
+                <?php else: ?><span class="badge badge-neutral">Student</span><?php endif; ?>
                 <span class="comment-time"><?= e(time_ago($c['created_at'])) ?></span>
               </div>
               <p class="comment-text"><?= nl2br(e($c['message'])) ?></p>
@@ -139,8 +174,12 @@ require __DIR__ . '/includes/header.php';
     </div>
 
     <!-- Reply -->
+    <?php if ($canComment): ?>
     <div class="card panel">
       <h2 class="panel-title">Add a reply</h2>
+      <p class="panel-sub" style="font-size:0.85rem;color:var(--text-muted, #64748b);margin-bottom:0.75rem;">
+        <?= $isAuthor ? 'Direct communication channel between you and the assigned department/staff.' : 'Replying as official campus personnel (' . e(role_label($user['role'])) . ').' ?>
+      </p>
       <form method="post" action="ticket.php?id=<?= (int)$ticket['id'] ?>" class="form" novalidate>
         <?= csrf_field() ?>
         <textarea name="message" class="input input-textarea" rows="3" maxlength="2000"
@@ -150,6 +189,11 @@ require __DIR__ . '/includes/header.php';
         </div>
       </form>
     </div>
+    <?php else: ?>
+    <div class="card panel">
+      <p class="panel-empty" style="padding:1rem 0;">This discussion is restricted to the original poster and the assigned department personnel.</p>
+    </div>
+    <?php endif; ?>
   </div>
 
   <div class="ticket-col-side">

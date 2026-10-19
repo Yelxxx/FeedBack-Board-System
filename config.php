@@ -99,6 +99,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/profanity.php';
 
 // ---- Database connection (PDO) ----------------------------------------------------
 try {

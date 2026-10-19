@@ -130,7 +130,7 @@ require __DIR__ . '/../includes/auth_open.php';
                 <label class="pill-card">
                     <input type="radio" name="role" value="staff" <?= $old['role'] === 'staff' ? 'checked' : '' ?>>
                     <span class="pill-emoji"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
-                    <span class="pill-label">Staff</span>
+                    <span class="pill-label">Staff / Maintenance</span>
                 </label>
             </div>
         </div>

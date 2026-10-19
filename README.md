@@ -61,16 +61,17 @@ bcrypt password hashing, CSRF protection, and a fully responsive UI.
 > **No XAMPP?** You can also run it with the PHP dev server:
 > `php -S localhost:8000` (requires MySQL running with the `oct_feedback` database).
 
-### Demo accounts (seeded in `database.sql`)
+### Demo accounts (5 Roles, seeded in `database.sql`)
 
-| Role    | Email                  | Password    |
-| ------- | ---------------------- | ----------- |
-| Admin   | `admin@oct.edu.ph`     | `admin123`  |
-| Student | `juan.delacruz@oct.edu.ph` | `student123` |
-| Student | `maria.santos@oct.edu.ph`  | `student123` |
+| Role | Name | Email | Password | Scope / Responsibility |
+| --- | --- | --- | --- | --- |
+| **Super Admin** | System Administrator | `admin@oct.edu.ph` | `superadmin123` | Full campus oversight & user role management |
+| **Admin (Dept Head)** | Engr. Grace Mendez | `depthead.maintenance@oct.edu.ph` | `superadmin123` | Head of Maintenance / Facility field |
+| **Staff / Maintenance** | Marco Torres | `staff.maintenance@oct.edu.ph` | `student123` | Non-academic / facility staff, responder |
+| **Faculty** | Prof. Pedro Reyes | `prof.reyes@oct.edu.ph` | `student123` | Instructor / Professor |
+| **Student** | Juan Dela Cruz | `student.delacruz@oct.edu.ph` | `student123` | Student body |
 
-The seed data also includes sample tickets in every status and category so the
-admin dashboard charts are populated on the very first run.
+All previous sample tickets and test feedback have been cleared for a clean start.
 
 ### Starting fresh
 The sample data is the `-- SEED DATA --` section at the bottom of `database.sql`.

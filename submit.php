@@ -8,8 +8,12 @@ require_login();
 
 $base      = '';
 $pageTitle = 'Submit Feedback';
-$active    = 'submit';
 $user      = current_user();
+
+if (is_super_admin()) {
+    flash_set('info', 'As Super Administrator, you manage campus feedback and broadcast announcements.');
+    redirect('announcements.php');
+}
 
 $errors = [];
 $old = ['category' => '', 'title' => '', 'description' => '', 'is_anonymous' => 0];
@@ -32,11 +36,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Please provide a subject / title.';
     } elseif (strlen($old['title']) > 160) {
         $errors[] = 'The subject must be 160 characters or less.';
+    } elseif (ProfanityFilter::containsBadWord($old['title'])) {
+        $badWords = ProfanityFilter::findBadWords($old['title']);
+        $errors[] = 'The title contains explicit or inappropriate language (' . implode(', ', $badWords) . '). Please keep campus feedback constructive and respectful.';
     }
     if ($old['description'] === '') {
         $errors[] = 'Please describe your concern in detail.';
     } elseif (strlen($old['description']) > 5000) {
         $errors[] = 'The description must be 5000 characters or less.';
+    } elseif (ProfanityFilter::containsBadWord($old['description'])) {
+        $badWords = ProfanityFilter::findBadWords($old['description']);
+        $errors[] = 'The description contains explicit or inappropriate language (' . implode(', ', $badWords) . '). Please keep campus feedback constructive and respectful.';
     }
 
     // Optional media attachments (images / videos / audio, up to MAX_FILES_PER_POST)

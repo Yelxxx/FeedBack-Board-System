@@ -25,7 +25,7 @@ $notifs    = $isLoggedIn ? unread_notifications($pdo, (int)$user['id']) : [];
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= e($pageTitle) ?> · <?= e(APP_NAME) ?></title>
-<link rel="stylesheet" href="<?= e($base) ?>assets/css/style.css?v=5">
+<link rel="stylesheet" href="<?= e($base) ?>assets/css/style.css?v=6">
 <link rel="icon" href="<?= e($base) ?>olivarez-college-tagaytay-logo.png">
 </head>
 <body data-base="<?= e($base) ?>" data-csrf="<?= e(csrf_token()) ?>" data-max-upload="<?= (int)MAX_UPLOAD_MB ?>"<?= $bodyClass !== '' ? ' class="' . e($bodyClass) . '"' : '' ?>>
@@ -45,9 +45,15 @@ $notifs    = $isLoggedIn ? unread_notifications($pdo, (int)$user['id']) : [];
     <?php if ($isLoggedIn): ?>
     <div class="nav-links" id="navLinks">
       <a class="nav-link <?= $active === 'home' ? 'active' : '' ?>" href="<?= e($base) ?>index.php">Home</a>
+      <?php if (!is_super_admin()): ?>
       <a class="nav-link <?= $active === 'field' ? 'active' : '' ?>" href="<?= e($base) ?>my-field.php">My Field</a>
-      <a class="nav-link <?= $active === 'dashboard' ? 'active' : '' ?>" href="<?= e($base) ?>dashboard.php">General Posts</a>
+      <?php endif; ?>
+      <a class="nav-link <?= $active === 'dashboard' ? 'active' : '' ?>" href="<?= e($base) ?>dashboard.php"><?= is_super_admin() ? 'Dashboard' : 'General Posts' ?></a>
+      <?php if (is_super_admin()): ?>
+      <a class="nav-link <?= $active === 'announcements' ? 'active' : '' ?>" href="<?= e($base) ?>announcements.php">Announcements</a>
+      <?php else: ?>
       <a class="nav-link <?= $active === 'submit' ? 'active' : '' ?>" href="<?= e($base) ?>submit.php">Submit Feedback</a>
+      <?php endif; ?>
       <?php if (is_admin()): ?>
       <a class="nav-link <?= $active === 'admin' ? 'active' : '' ?>" href="<?= e($base) ?>admin/dashboard.php">Admin Panel</a>
       <?php endif; ?>
