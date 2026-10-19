@@ -53,8 +53,8 @@
         .catch(function () { /* ignore */ });
     }
 
-    /* ---- Alerts: auto-dismiss + close buttons ---- */
-    document.querySelectorAll('.alert').forEach(function (alert) {
+    /* ---- Alerts: auto-dismiss success alerts, keep error alerts visible ---- */
+    document.querySelectorAll('.alert-success').forEach(function (alert) {
       setTimeout(function () {
         alert.classList.add('hide');
         setTimeout(function () { alert.remove(); }, 320);

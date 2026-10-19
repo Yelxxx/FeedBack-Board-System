@@ -14,6 +14,11 @@ $user = current_user();
 $id   = (int)($_GET['id'] ?? 0);
 $ticket = find_feedback($pdo, $id);
 
+if ($ticket === null) {
+    flash_set('error', 'Ticket not found.');
+    redirect('dashboard.php');
+}
+
 // Access control:
 // Can view if:
 // 1. Author of the ticket
@@ -72,13 +77,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $comments = fetch_comments($pdo, (int)$ticket['id'], false);
+$statusSteps = [
+    'pending'      => ['label' => 'Pending', 'desc' => 'Ticket received & queued'],
+    'under_review' => ['label' => 'Under Review', 'desc' => 'Assigned & being inspected'],
+    'resolved'     => ['label' => 'Resolved', 'desc' => 'Issue completed & verified'],
+];
 $statusOrder = ['pending' => 0, 'under_review' => 1, 'resolved' => 2];
+$isRejected = ($ticket['status'] === 'rejected');
 $currentStep = $statusOrder[$ticket['status']] ?? 0;
 
 require __DIR__ . '/includes/header.php';
 ?>
 
-<a class="back-link" href="dashboard.php">Back to dashboard</a>
+<a class="back-link" href="dashboard.php">&larr; Back to dashboard</a>
 
 <div class="ticket-head">
   <div>
@@ -98,35 +109,58 @@ require __DIR__ . '/includes/header.php';
   </div>
 </div>
 
-<?php if ((int)$ticket['is_anonymous'] === 1): ?>
-  <div class="alert alert-info">
-    <span>This ticket was submitted anonymously. Admins cannot see your identity, but they can still reply here.</span>
-    <button class="alert-close" aria-label="Dismiss">&times;</button>
+<?php if ($isRejected): ?>
+  <div class="alert alert-error" style="display:flex; align-items:center; gap:12px; margin-bottom:20px; border-radius:12px; padding:16px 20px;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+    <div>
+      <strong>Ticket Rejected by Moderation</strong>
+      <div style="font-size:0.9rem; margin-top:2px;">This feedback concern was rejected or closed by the Super Administrator. It is hidden from public view.</div>
+    </div>
   </div>
 <?php endif; ?>
 
-<!-- Status timeline -->
-<div class="card timeline">
-  <?php foreach (STATUS_LABELS as $key => $label):
-      $step = $statusOrder[$key] ?? 0;
-      $done = $step <= $currentStep;
-      $current = $step === $currentStep; ?>
-  <div class="timeline-step <?= $done ? 'done' : '' ?> <?= $current ? 'current' : '' ?>">
-    <span class="timeline-dot"></span>
-    <div>
-      <div class="timeline-label"><?= e($label) ?></div>
-      <?php if ($current && $ticket['status'] === 'pending'): ?>
-        <div class="timeline-desc">Just submitted</div>
-      <?php elseif ($current && $ticket['status'] === 'under_review'): ?>
-        <div class="timeline-desc">Acknowledged by the admin</div>
-      <?php elseif ($current && $ticket['status'] === 'resolved'): ?>
-        <div class="timeline-desc">Issue has been addressed.</div>
-      <?php else: ?>
-        <div class="timeline-desc">&nbsp;</div>
-      <?php endif; ?>
+<!-- Modern Status Stepper Progress Bar -->
+<div class="card timeline-card">
+  <div class="stepper-wrap">
+    <?php 
+    $stepIdx = 0;
+    foreach ($statusSteps as $key => $info):
+        $stepNumber = $statusOrder[$key];
+        $isDone = !$isRejected && ($stepNumber < $currentStep);
+        $isCurrent = !$isRejected && ($stepNumber === $currentStep);
+        $stepClass = $isDone ? 'step-done' : ($isCurrent ? 'step-current' : 'step-upcoming');
+    ?>
+    <div class="stepper-item <?= $stepClass ?>">
+      <div class="stepper-indicator">
+        <span class="stepper-circle">
+          <?php if ($isDone): ?>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <?php else: ?>
+            <?= ($stepIdx + 1) ?>
+          <?php endif; ?>
+        </span>
+        <?php if ($stepIdx < 2): ?>
+          <div class="stepper-line">
+            <div class="stepper-line-fill" style="width: <?= ($isDone || ($isCurrent && $stepNumber > 0)) ? '100%' : '0%' ?>;"></div>
+          </div>
+        <?php endif; ?>
+      </div>
+      <div class="stepper-content">
+        <div class="stepper-title"><?= e($info['label']) ?></div>
+        <div class="stepper-desc">
+          <?php if ($isCurrent): ?>
+            <span class="stepper-badge-live">Current stage</span>
+          <?php else: ?>
+            <?= e($info['desc']) ?>
+          <?php endif; ?>
+        </div>
+      </div>
     </div>
+    <?php 
+      $stepIdx++;
+    endforeach; 
+    ?>
   </div>
-  <?php endforeach; ?>
 </div>
 
 <div class="ticket-grid">

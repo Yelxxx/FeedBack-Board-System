@@ -69,7 +69,7 @@ bcrypt password hashing, CSRF protection, and a fully responsive UI.
 | **Admin (Dept Head)** | Engr. Grace Mendez | `depthead.maintenance@oct.edu.ph` | `superadmin123` | Head of Maintenance / Facility field |
 | **Staff / Maintenance** | Marco Torres | `staff.maintenance@oct.edu.ph` | `student123` | Non-academic / facility staff, responder |
 | **Faculty** | Prof. Pedro Reyes | `prof.reyes@oct.edu.ph` | `student123` | Instructor / Professor |
-| **Student** | Juan Dela Cruz | `student.delacruz@oct.edu.ph` | `student123` | Student body |
+| **Student** | Yel Mendoza | `yel.mendoza@oct.edu.ph` | `student123` | Student body (BS Information Technology) |
 
 All previous sample tickets and test feedback have been cleared for a clean start.
 

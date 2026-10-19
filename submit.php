@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 @unlink(UPLOAD_DIR . '/' . $a['path']);
             }
             error_log('Feedback insert failed: ' . $e->getMessage());
-            $errors[] = 'Something went wrong saving your post. Please try again.';
+            $errors[] = 'Something went wrong saving your post: ' . $e->getMessage();
         }
 
         if (empty($errors)) {
@@ -146,9 +146,13 @@ require __DIR__ . '/includes/header.php';
 </div>
 
 <?php if (!empty($errors)): ?>
-  <div class="alert alert-error">
-    <span><strong>Please fix the following:</strong> <?= e(implode(' ', $errors)) ?></span>
-    <button class="alert-close" aria-label="Dismiss">&times;</button>
+  <div class="alert alert-error" style="display:block;">
+    <strong>Please fix the following:</strong>
+    <ul style="margin: 0.5rem 0 0 1.25rem; padding: 0;">
+      <?php foreach ($errors as $err): ?>
+        <li><?= e($err) ?></li>
+      <?php endforeach; ?>
+    </ul>
   </div>
 <?php endif; ?>
 

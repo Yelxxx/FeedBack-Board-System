@@ -43,7 +43,8 @@ class ProfanityFilter
             // If the bad word has spaces, match with flexible whitespace
             $badPattern = str_replace('\ ', '\s+', $badPattern);
 
-            if (preg_match('/(?:\b|^)' . $badPattern . '(?:\b|$)/iu', $cleaned)) {
+            // Use word boundary \b so words like "attendance" or "faculty" are never flagged
+            if (preg_match('/\b' . $badPattern . '\b/iu', $cleaned)) {
                 return true;
             }
         }
@@ -63,7 +64,7 @@ class ProfanityFilter
             $badPattern = preg_quote($badWord, '/');
             $badPattern = str_replace('\ ', '\s+', $badPattern);
 
-            if (preg_match('/(?:\b|^)' . $badPattern . '(?:\b|$)/iu', $cleaned)) {
+            if (preg_match('/\b' . $badPattern . '\b/iu', $cleaned)) {
                 $found[] = $badWord;
             }
         }

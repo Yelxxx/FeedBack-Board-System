@@ -16,6 +16,6 @@ $base = $base ?? '';
   </div>
 </footer>
 
-<script src="<?= e($base) ?>assets/js/main.js"></script>
+<script src="<?= e($base) ?>assets/js/main.js?v=2"></script>
 </body>
 </html>

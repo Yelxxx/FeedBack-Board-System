@@ -21,7 +21,7 @@ $isSplit      = $authLayout === 'split';
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= e($authTitle) ?> · <?= e(APP_NAME) ?></title>
-<link rel="stylesheet" href="<?= e($base) ?>assets/css/style.css?v=5">
+<link rel="stylesheet" href="<?= e($base) ?>assets/css/style.css?v=6">
 <link rel="icon" href="<?= e($base) ?>olivarez-college-tagaytay-logo.png">
 </head>
 <body class="auth-page<?= $isSplit ? ' auth-page-split' : '' ?>" data-csrf="<?= e(csrf_token()) ?>">
