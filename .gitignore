@@ -1,0 +1,19 @@
+# Environment & IDE
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# FreeBuff / Antigravity Agent metadata
+.freebuff/
+
+# User Uploaded Evidence Media (keep directory structure via .gitkeep)
+uploads/*
+!uploads/.gitkeep
+!uploads/.htaccess
+!uploads/index.html

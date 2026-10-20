@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="olivarez-college-tagaytay-logo.png" alt="Olivarez College Tagaytay Logo" width="110" height="110">
+  <img src="assets/img/olivarez-college-tagaytay-logo.png" alt="Olivarez College Tagaytay Logo" width="110" height="110">
 </p>
 
 <h1 align="center">OCT Feedback Board System</h1>

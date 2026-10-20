@@ -26,7 +26,7 @@ $notifs    = $isLoggedIn ? unread_notifications($pdo, (int)$user['id']) : [];
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= e($pageTitle) ?> · <?= e(APP_NAME) ?></title>
 <link rel="stylesheet" href="<?= e($base) ?>assets/css/style.css?v=8">
-<link rel="icon" href="<?= e($base) ?>olivarez-college-tagaytay-logo.png">
+<link rel="icon" href="<?= e($base) ?>assets/img/olivarez-college-tagaytay-logo.png">
 </head>
 <body data-base="<?= e($base) ?>" data-csrf="<?= e(csrf_token()) ?>" data-max-upload="<?= (int)MAX_UPLOAD_MB ?>"<?= $bodyClass !== '' ? ' class="' . e($bodyClass) . '"' : '' ?>>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -34,7 +34,7 @@ $notifs    = $isLoggedIn ? unread_notifications($pdo, (int)$user['id']) : [];
 <nav class="navbar">
   <div class="container nav-inner">
     <a class="brand" href="<?= e($base) ?><?= $isLoggedIn ? 'dashboard.php' : 'index.php' ?>">
-      <img class="brand-logo" src="<?= e($base) ?>olivarez-college-tagaytay-logo.png" alt="Olivarez College Tagaytay logo">
+      <img class="brand-logo" src="<?= e($base) ?>assets/img/olivarez-college-tagaytay-logo.png" alt="Olivarez College Tagaytay logo">
       <span class="brand-text"><?= e(APP_NAME) ?></span>
     </a>
 

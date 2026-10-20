@@ -22,7 +22,7 @@ $isSplit      = $authLayout === 'split';
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= e($authTitle) ?> · <?= e(APP_NAME) ?></title>
 <link rel="stylesheet" href="<?= e($base) ?>assets/css/style.css?v=6">
-<link rel="icon" href="<?= e($base) ?>olivarez-college-tagaytay-logo.png">
+<link rel="icon" href="<?= e($base) ?>assets/img/olivarez-college-tagaytay-logo.png">
 </head>
 <body class="auth-page<?= $isSplit ? ' auth-page-split' : '' ?>" data-csrf="<?= e(csrf_token()) ?>">
 
@@ -32,7 +32,7 @@ $isSplit      = $authLayout === 'split';
   <aside class="auth-visual">
     <div class="auth-visual-inner">
       <div class="auth-visual-brand">
-        <img class="auth-logo-lg" src="<?= e($base) ?>olivarez-college-tagaytay-logo.png" alt="Olivarez College Tagaytay logo">
+        <img class="auth-logo-lg" src="<?= e($base) ?>assets/img/olivarez-college-tagaytay-logo.png" alt="Olivarez College Tagaytay logo">
         <h1><?= e(APP_NAME) ?></h1>
         <p class="auth-visual-tagline"><?= e(APP_TAGLINE) ?></p>
       </div>
@@ -55,7 +55,7 @@ $isSplit      = $authLayout === 'split';
   <div class="auth-panel">
     <div class="auth-panel-card">
       <div class="auth-card-head">
-        <img src="<?= e($base) ?>olivarez-college-tagaytay-logo.png" alt="">
+        <img src="<?= e($base) ?>assets/img/olivarez-college-tagaytay-logo.png" alt="">
         <div>
           <h2><?= e($authTitle) ?></h2>
           <?php if ($authSubtitle !== ''): ?><p><?= e($authSubtitle) ?></p><?php endif; ?>
@@ -66,7 +66,7 @@ $isSplit      = $authLayout === 'split';
 <div class="auth-shell">
   <div class="auth-card">
     <div class="auth-brand">
-      <img class="auth-logo" src="<?= e($base) ?>olivarez-college-tagaytay-logo.png" alt="Olivarez College Tagaytay logo">
+      <img class="auth-logo" src="<?= e($base) ?>assets/img/olivarez-college-tagaytay-logo.png" alt="Olivarez College Tagaytay logo">
       <h1 class="auth-brand-name"><?= e(APP_NAME) ?></h1>
       <?php if ($authSubtitle !== ''): ?><p class="auth-subtitle"><?= e($authSubtitle) ?></p><?php endif; ?>
     </div>
