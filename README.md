@@ -129,10 +129,10 @@ Visual 3-stage lifecycle progress tracker:
 
 | Role | Name | Email | Password | Responsibility |
 | :--- | :--- | :--- | :--- | :--- |
-| **Super Admin** | System Administrator | `admin@oct.edu.ph` | `superadmin123` | Unbiased oversight, user roles & announcements |
-| **Admin (Dept Head)** | Engr. Grace Mendez | `depthead.maintenance@oct.edu.ph` | `superadmin123` | Head of Maintenance / Facility Field |
-| **Staff / Maintenance** | Marco Torres | `staff.maintenance@oct.edu.ph` | `student123` | Facility inspections & non-academic responder |
-| **Faculty** | Prof. Pedro Reyes | `prof.reyes@oct.edu.ph` | `student123` | Professor / Faculty member |
+| **Super Admin** | System Administrator | `superadmin@oct.edu.ph` | `superadmin123` | Unbiased oversight, user roles & announcements |
+| **Admin (Dept Head)** | Engr. Mary Grace Piattos | `marygrace.piattos@oct.edu.ph` | `admin123` | Head of Maintenance / Facility Field |
+| **Staff / Maintenance** | Peter Parker | `peter.parker@oct.edu.ph` | `staff123` | Facility inspections & non-academic responder |
+| **Faculty** | Prof. LeBron James | `lebron.james@oct.edu.ph` | `faculty123` | Professor / Faculty member |
 | **Student** | Yel Mendoza | `yel.mendoza@oct.edu.ph` | `student123` | Student body (BS Information Technology) |
 
 ---

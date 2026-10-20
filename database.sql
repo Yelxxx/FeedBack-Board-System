@@ -130,18 +130,18 @@ CREATE TABLE announcements (
 --    Role: super_admin (Overall oversight across all fields)
 --
 -- 2. Department Head / Admin:
---    Email: depthead.maintenance@oct.edu.ph
---    Password: superadmin123
+--    Email: marygrace.piattos@oct.edu.ph
+--    Password: admin123
 --    Role: admin (Head of Maintenance / Facilities)
 --
 -- 3. Staff / Maintenance:
---    Email: staff.maintenance@oct.edu.ph
---    Password: student123
+--    Email: peter.parker@oct.edu.ph
+--    Password: staff123
 --    Role: staff (Handles canteen, facilities, repairs, non-academic tasks)
 --
 -- 4. Faculty / Professor:
---    Email: prof.reyes@oct.edu.ph
---    Password: student123
+--    Email: lebron.james@oct.edu.ph
+--    Password: faculty123
 --    Role: faculty (Instructor/Professor)
 --
 -- 5. Student:
@@ -155,16 +155,16 @@ INSERT INTO users (id, id_number, name, email, password, department, role, field
  '$2y$12$7hIPNB5r6zT4SHO.UHpguOiGuLWspWmkPky.2ocSiE0s/p/sbq0Le',
  'Office of the President', 'super_admin', NULL),
 
-(2, 'DPT-0001', 'Engr. Grace Mendez (Dept Head)', 'depthead.maintenance@oct.edu.ph',
- '$2y$12$7hIPNB5r6zT4SHO.UHpguOiGuLWspWmkPky.2ocSiE0s/p/sbq0Le',
+(2, 'DPT-0001', 'Engr. Mary Grace Piattos (Dept Head)', 'marygrace.piattos@oct.edu.ph',
+ '$2y$12$3kU4RJDUlfeWiPBuK/mfsO3IK1/jQUPfcxLwZpecFv7NqO7e8/Deu',
  'Maintenance Office', 'admin', 'maintenance'),
 
-(3, 'STF-0001', 'Marco Torres (Maintenance Staff)', 'staff.maintenance@oct.edu.ph',
- '$2y$12$iC7mTDUGRo/gSJpBbziPg.faZ13d2UVAFVCdjP49vfbVoGTh/EjPK',
+(3, 'STF-0001', 'Peter Parker (Maintenance Staff)', 'peter.parker@oct.edu.ph',
+ '$2y$12$JXh0WpxqZFZg5d0MIu8w6uMSUuszVd6gPK9txZ0QTO.yDj0UAicyi',
  'Maintenance Department', 'staff', NULL),
 
-(4, 'FAC-0001', 'Prof. Pedro Reyes', 'prof.reyes@oct.edu.ph',
- '$2y$12$iC7mTDUGRo/gSJpBbziPg.faZ13d2UVAFVCdjP49vfbVoGTh/EjPK',
+(4, 'FAC-0001', 'Prof. LeBron James', 'lebron.james@oct.edu.ph',
+ '$2y$12$G3DlCCbtBHsbHea3wOFdlecjhRMUmjtSRo/XlKAj8Zqj.xeIl5QaS',
  'College of Engineering', 'faculty', NULL),
 
 (5, 'STD-0001', 'Yel Mendoza', 'yel.mendoza@oct.edu.ph',

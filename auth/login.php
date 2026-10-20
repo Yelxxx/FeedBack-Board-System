@@ -95,10 +95,10 @@ require __DIR__ . '/../includes/auth_open.php';
     <p class="demo-title">Demo accounts — tap to fill</p>
     <p>Try the system as any end user:</p>
     <div class="demo-btns">
-        <button type="button" class="btn btn-demo" data-demo-email="admin@oct.edu.ph" data-demo-password="superadmin123">Super Admin</button>
-        <button type="button" class="btn btn-demo" data-demo-email="depthead.maintenance@oct.edu.ph" data-demo-password="superadmin123">Dept Head (Admin)</button>
-        <button type="button" class="btn btn-demo" data-demo-email="staff.maintenance@oct.edu.ph" data-demo-password="student123">Staff / Maintenance</button>
-        <button type="button" class="btn btn-demo" data-demo-email="prof.reyes@oct.edu.ph" data-demo-password="student123">Faculty</button>
+        <button type="button" class="btn btn-demo" data-demo-email="superadmin@oct.edu.ph" data-demo-password="superadmin123">Super Admin</button>
+        <button type="button" class="btn btn-demo" data-demo-email="marygrace.piattos@oct.edu.ph" data-demo-password="admin123">Admin (Mary Grace Piattos)</button>
+        <button type="button" class="btn btn-demo" data-demo-email="peter.parker@oct.edu.ph" data-demo-password="staff123">Staff (Peter Parker)</button>
+        <button type="button" class="btn btn-demo" data-demo-email="lebron.james@oct.edu.ph" data-demo-password="faculty123">Faculty (LeBron James)</button>
         <button type="button" class="btn btn-demo" data-demo-email="yel.mendoza@oct.edu.ph" data-demo-password="student123">Student (Yel Mendoza)</button>
     </div>
 </div>
