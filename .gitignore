@@ -9,9 +9,6 @@
 .DS_Store
 Thumbs.db
 
-# FreeBuff / Antigravity Agent metadata
-.freebuff/
-
 # User Uploaded Evidence Media (keep directory structure via .gitkeep)
 uploads/*
 !uploads/.gitkeep
