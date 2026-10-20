@@ -52,16 +52,29 @@ CREATE TABLE feedbacks (
   CONSTRAINT fk_feedback_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Comments (two-way thread between reporter & target staff/admin)
+-- Comments & Nested Replies
 CREATE TABLE comments (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   feedback_id INT UNSIGNED NOT NULL,
+  parent_id   INT UNSIGNED DEFAULT NULL,
   user_id     INT UNSIGNED NOT NULL,
   message     TEXT         NOT NULL,
   visibility  ENUM('public','private') NOT NULL DEFAULT 'public',
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_comment_feedback FOREIGN KEY (feedback_id) REFERENCES feedbacks(id) ON DELETE CASCADE,
+  CONSTRAINT fk_comment_parent   FOREIGN KEY (parent_id)   REFERENCES comments(id)  ON DELETE CASCADE,
   CONSTRAINT fk_comment_user     FOREIGN KEY (user_id)     REFERENCES users(id)     ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Feedback Support / Endorsements ("Support" vote feature)
+CREATE TABLE feedback_endorsements (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  feedback_id INT UNSIGNED NOT NULL,
+  user_id     INT UNSIGNED NOT NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_feedback_user (feedback_id, user_id),
+  CONSTRAINT fk_endorse_feedback FOREIGN KEY (feedback_id) REFERENCES feedbacks(id) ON DELETE CASCADE,
+  CONSTRAINT fk_endorse_user     FOREIGN KEY (user_id)     REFERENCES users(id)     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Password reset tokens
@@ -132,7 +145,7 @@ CREATE TABLE announcements (
 --    Role: faculty (Instructor/Professor)
 --
 -- 5. Student:
---    Email: student.delacruz@oct.edu.ph
+--    Email: yel.mendoza@oct.edu.ph
 --    Password: student123
 --    Role: student (Student body)
 -- ---------------------------------------------------------------------------
@@ -154,6 +167,6 @@ INSERT INTO users (id, id_number, name, email, password, department, role, field
  '$2y$12$iC7mTDUGRo/gSJpBbziPg.faZ13d2UVAFVCdjP49vfbVoGTh/EjPK',
  'College of Engineering', 'faculty', NULL),
 
-(5, 'STD-0001', 'Juan Dela Cruz', 'student.delacruz@oct.edu.ph',
+(5, 'STD-0001', 'Yel Mendoza', 'yel.mendoza@oct.edu.ph',
  '$2y$12$iC7mTDUGRo/gSJpBbziPg.faZ13d2UVAFVCdjP49vfbVoGTh/EjPK',
- 'BS Computer Science', 'student', NULL);
+ 'BS Information Technology', 'student', NULL);

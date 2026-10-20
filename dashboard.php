@@ -31,14 +31,18 @@ $myTickets = $stmt->fetchAll();
 // General posts: approved feedback from OTHER users, across all fields.
 // Rejected (moderated) posts never appear in the general feed.
 $stmt = $pdo->prepare(
-    "SELECT f.*, u.name
+    "SELECT f.*, u.name,
+            (SELECT COUNT(*) FROM feedback_endorsements WHERE feedback_id = f.id) AS support_count,
+            (SELECT COUNT(*) FROM comments WHERE feedback_id = f.id) AS comment_count,
+            (SELECT 1 FROM feedback_endorsements WHERE feedback_id = f.id AND user_id = ?) AS user_supported
      FROM feedbacks f
      JOIN users u ON u.id = f.user_id
      WHERE f.is_public = 1 AND f.user_id <> ? AND f.status <> 'rejected'
      ORDER BY f.created_at DESC, f.id DESC
      LIMIT 8"
 );
-$stmt->execute([(int)$user['id']]);
+$stmt->execute([(int)$user['id'], (int)$user['id']]);
+$generalPosts = $stmt->fetchAll();
 // Campus Announcements (visible to all users)
 $announcements = $pdo->query(
     'SELECT a.*, u.name AS author_name FROM announcements a
@@ -84,37 +88,6 @@ require __DIR__ . '/includes/header.php';
   </div>
 </div>
 <?php endif; ?>
-
-<div class="stat-grid">
-  <div class="card stat-card">
-    <span class="stat-icon stat-icon-total"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></span>
-    <div>
-      <div class="stat-number"><?= $total ?></div>
-      <div class="stat-label">Total tickets</div>
-    </div>
-  </div>
-  <div class="card stat-card">
-    <span class="stat-icon stat-icon-pending"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
-    <div>
-      <div class="stat-number"><?= $counts['pending'] ?></div>
-      <div class="stat-label">Pending</div>
-    </div>
-  </div>
-  <div class="card stat-card">
-    <span class="stat-icon stat-icon-review"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
-    <div>
-      <div class="stat-number"><?= $counts['under_review'] ?></div>
-      <div class="stat-label">Under review</div>
-    </div>
-  </div>
-  <div class="card stat-card">
-    <span class="stat-icon stat-icon-resolved"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span>
-    <div>
-      <div class="stat-number"><?= $counts['resolved'] ?></div>
-      <div class="stat-label">Resolved</div>
-    </div>
-  </div>
-</div>
 
 <div class="dash-grid">
   <div class="dash-col" id="general-anchor">
@@ -176,20 +149,33 @@ require __DIR__ . '/includes/header.php';
     <?php else: ?>
       <div class="feed-list">
         <?php foreach ($generalPosts as $item): ?>
-        <article class="card feed-item">
+        <a class="card feed-item" href="ticket.php?id=<?= (int)$item['id'] ?>" style="text-decoration:none; color:inherit; display:block;">
           <div class="feed-top">
             <?= category_badge($item['category']) ?>
             <?= status_badge($item['status']) ?>
           </div>
           <h3 class="feed-title"><?= e($item['title']) ?></h3>
           <p class="feed-text"><?= e(truncate($item['description'], 110)) ?></p>
-          <div class="board-card-meta">
-            <span class="avatar avatar-sm"><?= $item['is_anonymous'] ? '?' : e(initials($item['name'])) ?></span>
-            <span><?= $item['is_anonymous'] ? 'Anonymous' : e($item['name']) ?></span>
-            <span class="dot-sep">•</span>
-            <span><?= e(time_ago($item['created_at'])) ?></span>
+          <div class="board-card-meta" style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span class="avatar avatar-sm"><?= $item['is_anonymous'] ? '?' : e(initials($item['name'])) ?></span>
+              <span><?= $item['is_anonymous'] ? 'Anonymous' : e($item['name']) ?></span>
+              <span class="dot-sep">•</span>
+              <span><?= e(time_ago($item['created_at'])) ?></span>
+            </div>
+
+            <div class="feed-stat-badges" style="display:flex; align-items:center; gap:8px;">
+              <span class="badge-card-support <?= (int)$item['user_supported'] === 1 ? 'is-supported' : '' ?>" title="Community Support">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                <?= (int)$item['support_count'] ?> <?= (int)$item['support_count'] === 1 ? 'Support' : 'Supports' ?>
+              </span>
+              <span class="badge-card-comments" title="Discussion Comments">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <?= (int)$item['comment_count'] ?>
+              </span>
+            </div>
           </div>
-        </article>
+        </a>
         <?php endforeach; ?>
       </div>
     <?php endif; ?>

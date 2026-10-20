@@ -25,7 +25,7 @@ $notifs    = $isLoggedIn ? unread_notifications($pdo, (int)$user['id']) : [];
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= e($pageTitle) ?> · <?= e(APP_NAME) ?></title>
-<link rel="stylesheet" href="<?= e($base) ?>assets/css/style.css?v=6">
+<link rel="stylesheet" href="<?= e($base) ?>assets/css/style.css?v=8">
 <link rel="icon" href="<?= e($base) ?>olivarez-college-tagaytay-logo.png">
 </head>
 <body data-base="<?= e($base) ?>" data-csrf="<?= e(csrf_token()) ?>" data-max-upload="<?= (int)MAX_UPLOAD_MB ?>"<?= $bodyClass !== '' ? ' class="' . e($bodyClass) . '"' : '' ?>>

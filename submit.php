@@ -18,6 +18,15 @@ if (is_super_admin()) {
 $errors = [];
 $old = ['category' => '', 'title' => '', 'description' => '', 'is_anonymous' => 0];
 
+// User's ticket counts for the summary stat cards
+$stmt = $pdo->prepare('SELECT status, COUNT(*) AS c FROM feedbacks WHERE user_id = ? GROUP BY status');
+$stmt->execute([(int)$user['id']]);
+$counts = ['pending' => 0, 'under_review' => 0, 'resolved' => 0];
+foreach ($stmt as $row) {
+    $counts[$row['status']] = (int)$row['c'];
+}
+$total = array_sum($counts);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $old = [
         'category'      => trim((string)($_POST['category'] ?? '')),
@@ -142,6 +151,38 @@ require __DIR__ . '/includes/header.php';
   <div>
     <h1 class="page-title">Submit Feedback</h1>
     <p class="page-sub">Help us improve the campus. Every concern is read and tracked.</p>
+  </div>
+</div>
+
+<!-- Dashboard Summary Cards -->
+<div class="stat-grid" style="margin-bottom: 24px;">
+  <div class="card stat-card">
+    <span class="stat-icon stat-icon-total"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></span>
+    <div>
+      <div class="stat-number"><?= $total ?></div>
+      <div class="stat-label">Total submitted</div>
+    </div>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon stat-icon-pending"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+    <div>
+      <div class="stat-number"><?= $counts['pending'] ?></div>
+      <div class="stat-label">Pending</div>
+    </div>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon stat-icon-review"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+    <div>
+      <div class="stat-number"><?= $counts['under_review'] ?></div>
+      <div class="stat-label">Under review</div>
+    </div>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon stat-icon-resolved"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span>
+    <div>
+      <div class="stat-number"><?= $counts['resolved'] ?></div>
+      <div class="stat-label">Resolved</div>
+    </div>
   </div>
 </div>
 

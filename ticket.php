@@ -30,18 +30,22 @@ $isAuthor = (int)$ticket['user_id'] === (int)$user['id'];
 $isSuper  = is_super_admin();
 $isAdminOfField = ($user['role'] === 'admin') && (admin_field($user) === null || admin_field($user) === $ticket['category']);
 $isStaffOfField = ($user['role'] === 'staff') && (user_field($user) === null || user_field($user) === $ticket['category']);
-$canComment = $isAuthor || $isSuper || $isAdminOfField || $isStaffOfField;
-$canView = $canComment || ((int)$ticket['is_public'] === 1);
+
+// On public tickets, any logged-in user can join the discussion.
+// On private tickets, only the author and assigned staff/admins have access.
+$canView = ((int)$ticket['is_public'] === 1) || $isAuthor || $isSuper || $isAdminOfField || $isStaffOfField;
 
 if (!$canView) {
     flash_set('error', 'You do not have permission to view this ticket.');
     redirect('dashboard.php');
 }
 
-// Handle reply
+$canComment = $canView; // Any user who can view can comment/reply
+
+// Handle reply or threaded comment
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$canComment) {
-        flash_set('error', 'Only the reporter, assigned staff/maintenance, and department heads can reply to this ticket thread.');
+        flash_set('error', 'You do not have permission to reply on this ticket.');
         redirect('ticket.php?id=' . $ticket['id']);
     }
 
@@ -49,6 +53,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash_set('error', 'Your session expired. Please try again.');
     } else {
         $message = trim((string)($_POST['message'] ?? ''));
+        $parentId = !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : null;
+
+        // Verify parent_id belongs to this feedback
+        if ($parentId !== null) {
+            $checkParent = $pdo->prepare('SELECT id, user_id FROM comments WHERE id = ? AND feedback_id = ?');
+            $checkParent->execute([$parentId, (int)$ticket['id']]);
+            $parentRow = $checkParent->fetch();
+            if (!$parentRow) {
+                $parentId = null;
+            }
+        }
+
         if ($message === '') {
             flash_set('error', 'Please type a message first.');
         } elseif (strlen($message) > 2000) {
@@ -58,25 +74,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash_set('error', 'Your comment contains inappropriate or explicit language (' . implode(', ', $badWords) . '). Please keep campus discussions respectful.');
         } else {
             $stmt = $pdo->prepare(
-                "INSERT INTO comments (feedback_id, user_id, message, visibility) VALUES (?, ?, ?, 'public')"
+                "INSERT INTO comments (feedback_id, parent_id, user_id, message, visibility) VALUES (?, ?, ?, ?, 'public')"
             );
-            $stmt->execute([(int)$ticket['id'], (int)$user['id'], $message]);
+            $stmt->execute([(int)$ticket['id'], $parentId, (int)$user['id'], $message]);
 
-            // If the poster commented, notify staff & admins.
-            // If staff/admin commented, notify the poster!
-            if ($isAuthor) {
+            // Notification dispatch:
+            if ($parentId !== null && isset($parentRow['user_id']) && (int)$parentRow['user_id'] !== (int)$user['id']) {
+                // User replied to a specific comment -> notify comment author
+                notify_user(
+                    $pdo,
+                    (int)$parentRow['user_id'],
+                    $user['name'] . ' replied to your comment on ' . $ticket['ticket_no'] . ': "' . truncate($message, 50) . '"',
+                    (int)$ticket['id']
+                );
+            } elseif ($isAuthor) {
                 notify_admins($pdo, 'New reply on ' . $ticket['ticket_no'] . ': "' . truncate($message, 60) . '"', (int)$ticket['id']);
-            } else {
-                notify_user($pdo, (int)$ticket['user_id'], 'New response on ' . $ticket['ticket_no'] . ' from ' . $user['name'] . ': "' . truncate($message, 60) . '"', (int)$ticket['id']);
+            } elseif ((int)$ticket['user_id'] !== (int)$user['id']) {
+                $roleBadge = ($isAdminOfField || $isStaffOfField || $isSuper) ? ' (Official Response)' : '';
+                notify_user(
+                    $pdo,
+                    (int)$ticket['user_id'],
+                    'New reply on ' . $ticket['ticket_no'] . ' from ' . $user['name'] . $roleBadge . ': "' . truncate($message, 60) . '"',
+                    (int)$ticket['id']
+                );
             }
 
-            flash_set('success', 'Your reply was posted.');
-            redirect('ticket.php?id=' . $ticket['id']);
+            flash_set('success', $parentId !== null ? 'Your reply was posted.' : 'Your comment was posted.');
+            redirect('ticket.php?id=' . $ticket['id'] . '#comments');
         }
     }
 }
 
-$comments = fetch_comments($pdo, (int)$ticket['id'], false);
+$rawComments = fetch_comments($pdo, (int)$ticket['id'], false);
+$commentTree = build_comment_tree($rawComments);
+$totalCommentsCount = count($rawComments);
+
+// Support status for current user & total count
+$supportCount = get_support_count($pdo, (int)$ticket['id']);
+$hasSupported = user_has_supported($pdo, (int)$ticket['id'], (int)$user['id']);
 $statusSteps = [
     'pending'      => ['label' => 'Pending', 'desc' => 'Ticket received & queued'],
     'under_review' => ['label' => 'Under Review', 'desc' => 'Assigned & being inspected'],
@@ -91,7 +126,7 @@ require __DIR__ . '/includes/header.php';
 
 <a class="back-link" href="dashboard.php">&larr; Back to dashboard</a>
 
-<div class="ticket-head">
+<div class="ticket-head" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
   <div>
     <div class="ticket-head-badges">
       <span class="ticket-no ticket-no-lg"><?= e($ticket['ticket_no']) ?></span>
@@ -106,6 +141,21 @@ require __DIR__ . '/includes/header.php';
        <?php endif; ?>
        <?php if ($ticket['assigned_dept']): ?>· Assigned to <strong><?= e($ticket['assigned_dept']) ?></strong><?php endif; ?>
     </p>
+  </div>
+
+  <!-- Reddit-style Support Button -->
+  <div class="ticket-actions-head">
+    <button type="button" 
+            class="btn-support <?= $hasSupported ? 'is-supported' : '' ?>" 
+            id="supportBtn" 
+            data-id="<?= (int)$ticket['id'] ?>"
+            title="<?= $hasSupported ? 'You support this concern (click to withdraw)' : 'Click to support this concern' ?>">
+      <svg class="support-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 19V5M5 12l7-7 7 7"/>
+      </svg>
+      <span class="support-label"><?= $hasSupported ? 'Supported' : 'Support' ?></span>
+      <span class="support-count" id="supportCount"><?= $supportCount ?></span>
+    </button>
   </div>
 </div>
 
@@ -175,59 +225,142 @@ require __DIR__ . '/includes/header.php';
       <?php endforeach; ?>
     </div>
 
-    <!-- Comments -->
-    <div class="card panel">
-      <h2 class="panel-title">Discussion (<?= count($comments) ?>)</h2>
+    <!-- Discussion / Comments Tree -->
+    <div class="card panel" id="comments">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <h2 class="panel-title" style="margin-bottom:0;">Discussion (<?= $totalCommentsCount ?>)</h2>
+        <span style="font-size:0.85rem; color:var(--text-muted, #64748b);">
+          <?= ((int)$ticket['is_public'] === 1) ? 'Open public discussion' : 'Private concern thread' ?>
+        </span>
+      </div>
 
-      <?php if (empty($comments)): ?>
-        <p class="panel-empty">No comments yet. The admin will reply here once your concern is reviewed.</p>
+      <?php if (empty($commentTree)): ?>
+        <p class="panel-empty">No comments yet. Join the conversation below.</p>
       <?php else: ?>
-        <div class="comment-list">
-          <?php foreach ($comments as $c):
-              $isOfficial = in_array($c['role'], ['admin', 'super_admin', 'staff'], true);
-              $isStaffResp = ($c['role'] === 'staff');
-          ?>
-          <div class="comment <?= $isOfficial ? 'comment-admin' : '' ?>">
-            <span class="avatar"><?= e(initials($c['name'])) ?></span>
-            <div class="comment-body">
-              <div class="comment-meta">
-                <strong><?= e($c['name']) ?></strong>
-                <?php if ($c['role'] === 'super_admin'): ?><span class="badge badge-admin">Super Admin</span>
-                <?php elseif ($c['role'] === 'admin'): ?><span class="badge badge-admin">Department Head</span>
-                <?php elseif ($c['role'] === 'staff'): ?><span class="badge badge-admin" style="background:#0284c7;color:#fff;">Staff / Maintenance</span>
-                <?php elseif ($c['role'] === 'faculty'): ?><span class="badge badge-neutral">Faculty</span>
-                <?php else: ?><span class="badge badge-neutral">Student</span><?php endif; ?>
-                <span class="comment-time"><?= e(time_ago($c['created_at'])) ?></span>
+        <?php
+        // Recursive renderer for Reddit-style threaded comments
+        function render_comment_tree(array $branch, array $ticket, array $currentUser, int $depth = 0) {
+            $isAssignedDept = $ticket['assigned_dept'] ?? '';
+            foreach ($branch as $c):
+                $isSuperAdmin = ($c['role'] === 'super_admin');
+                $isDeptHead   = ($c['role'] === 'admin');
+                $isStaff      = ($c['role'] === 'staff');
+                $isAuthor     = ((int)$c['user_id'] === (int)$ticket['user_id']);
+                
+                // Highlight assigned staff / dept head
+                $isAssignedStaff = false;
+                if ($isDeptHead || $isStaff) {
+                    if (!empty($c['department']) && !empty($ticket['assigned_dept'])) {
+                        if (stripos($c['department'], $ticket['assigned_dept']) !== false || stripos($ticket['assigned_dept'], $c['department']) !== false) {
+                            $isAssignedStaff = true;
+                        }
+                    } else {
+                        $isAssignedStaff = true;
+                    }
+                }
+                
+                $officialClass = '';
+                if ($isSuperAdmin) {
+                    $officialClass = 'comment-superadmin';
+                } elseif ($isAssignedStaff) {
+                    $officialClass = 'comment-assigned-staff';
+                } elseif ($isDeptHead || $isStaff) {
+                    $officialClass = 'comment-official';
+                }
+        ?>
+          <div class="comment-thread <?= $depth > 0 ? 'comment-reply-level' : '' ?>" id="comment-<?= (int)$c['id'] ?>">
+            <div class="comment <?= $officialClass ?>">
+              <span class="avatar avatar-sm"><?= e(initials($c['name'])) ?></span>
+              <div class="comment-body">
+                <div class="comment-meta">
+                  <strong><?= e($c['name']) ?></strong>
+
+                  <?php if ($isSuperAdmin): ?>
+                    <span class="badge badge-admin badge-glow">Super Admin</span>
+                  <?php elseif ($isAssignedStaff): ?>
+                    <span class="badge badge-staff-prio">Assigned Personnel</span>
+                  <?php elseif ($isDeptHead): ?>
+                    <span class="badge badge-admin">Department Head</span>
+                  <?php elseif ($isStaff): ?>
+                    <span class="badge badge-admin" style="background:#0284c7; color:#fff;">Staff</span>
+                  <?php elseif ($c['role'] === 'faculty'): ?>
+                    <span class="badge badge-neutral">Faculty</span>
+                  <?php else: ?>
+                    <span class="badge badge-neutral">Student</span>
+                  <?php endif; ?>
+
+                  <?php if ($isAuthor): ?>
+                    <span class="badge badge-op">Author</span>
+                  <?php endif; ?>
+
+                  <span class="comment-time"><?= e(time_ago($c['created_at'])) ?></span>
+                </div>
+
+                <p class="comment-text"><?= nl2br(e($c['message'])) ?></p>
+
+                <!-- Action row: Reply toggle -->
+                <div class="comment-actions">
+                  <button type="button" class="btn-reply-toggle" onclick="toggleReplyBox(<?= (int)$c['id'] ?>)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+                    Reply
+                  </button>
+                </div>
+
+                <!-- Hidden inline reply box -->
+                <div class="reply-form-wrap" id="reply-form-<?= (int)$c['id'] ?>" style="display:none; margin-top:10px;">
+                  <form method="post" action="ticket.php?id=<?= (int)$ticket['id'] ?>" class="form" novalidate>
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="parent_id" value="<?= (int)$c['id'] ?>">
+                    <textarea name="message" class="input input-textarea" rows="2" maxlength="2000"
+                              placeholder="Write a reply to <?= e(first_name($c['name'])) ?>…" required></textarea>
+                    <div style="display:flex; gap:8px; margin-top:8px;">
+                      <button type="submit" class="btn btn-primary btn-sm">Submit Reply</button>
+                      <button type="button" class="btn btn-ghost btn-sm" onclick="toggleReplyBox(<?= (int)$c['id'] ?>)">Cancel</button>
+                    </div>
+                  </form>
+                </div>
               </div>
-              <p class="comment-text"><?= nl2br(e($c['message'])) ?></p>
             </div>
+
+            <!-- Nested child replies -->
+            <?php if (!empty($c['replies'])): ?>
+              <div class="comment-replies-wrap">
+                <?php render_comment_tree($c['replies'], $ticket, $currentUser, $depth + 1); ?>
+              </div>
+            <?php endif; ?>
           </div>
-          <?php endforeach; ?>
+        <?php
+            endforeach;
+        }
+        ?>
+
+        <div class="comment-list comment-tree-root">
+          <?php render_comment_tree($commentTree, $ticket, $user, 0); ?>
         </div>
       <?php endif; ?>
     </div>
 
-    <!-- Reply -->
-    <?php if ($canComment): ?>
+    <!-- Main Thread Reply / Comment Box -->
     <div class="card panel">
-      <h2 class="panel-title">Add a reply</h2>
+      <h2 class="panel-title">Leave a comment</h2>
       <p class="panel-sub" style="font-size:0.85rem;color:var(--text-muted, #64748b);margin-bottom:0.75rem;">
-        <?= $isAuthor ? 'Direct communication channel between you and the assigned department/staff.' : 'Replying as official campus personnel (' . e(role_label($user['role'])) . ').' ?>
+        <?php if ($isAuthor): ?>
+          Direct communication channel with assigned personnel and the school community.
+        <?php elseif (in_array($user['role'], ['admin', 'super_admin', 'staff'], true)): ?>
+          Replying as official campus personnel (<strong><?= e(role_label($user['role'])) ?></strong>).
+        <?php else: ?>
+          Commenting as <strong><?= e($user['name']) ?></strong> (<?= e(role_label($user['role'])) ?>).
+        <?php endif; ?>
       </p>
       <form method="post" action="ticket.php?id=<?= (int)$ticket['id'] ?>" class="form" novalidate>
         <?= csrf_field() ?>
         <textarea name="message" class="input input-textarea" rows="3" maxlength="2000"
-                  placeholder="Type your reply…" required></textarea>
+                  placeholder="Type your comment or update on this concern…" required></textarea>
         <div class="form-actions form-actions-left">
-          <button type="submit" class="btn btn-primary">Post reply</button>
+          <button type="submit" class="btn btn-primary">Post comment</button>
         </div>
       </form>
     </div>
-    <?php else: ?>
-    <div class="card panel">
-      <p class="panel-empty" style="padding:1rem 0;">This discussion is restricted to the original poster and the assigned department personnel.</p>
-    </div>
-    <?php endif; ?>
   </div>
 
   <div class="ticket-col-side">
@@ -253,5 +386,68 @@ require __DIR__ . '/includes/header.php';
     </div>
   </div>
 </div>
+
+<script>
+function toggleReplyBox(commentId) {
+  const box = document.getElementById('reply-form-' + commentId);
+  if (!box) return;
+  if (box.style.display === 'none' || box.style.display === '') {
+    box.style.display = 'block';
+    const textarea = box.querySelector('textarea');
+    if (textarea) textarea.focus();
+  } else {
+    box.style.display = 'none';
+  }
+}
+
+// Support button AJAX toggle
+document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.getElementById('supportBtn');
+  if (!btn) return;
+
+  btn.addEventListener('click', function() {
+    const feedbackId = this.dataset.id;
+    const countEl = document.getElementById('supportCount');
+    const labelEl = this.querySelector('.support-label');
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '<?= e(csrf_token()) ?>';
+
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+
+    fetch('support_toggle.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken
+      },
+      body: JSON.stringify({ feedback_id: feedbackId, csrf_token: csrfToken })
+    })
+    .then(r => r.json())
+    .then(data => {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      if (data.success) {
+        if (countEl) countEl.textContent = data.count;
+        if (data.supported) {
+          btn.classList.add('is-supported');
+          if (labelEl) labelEl.textContent = 'Supported';
+          btn.title = 'You support this concern (click to withdraw)';
+        } else {
+          btn.classList.remove('is-supported');
+          if (labelEl) labelEl.textContent = 'Support';
+          btn.title = 'Click to support this concern';
+        }
+      } else {
+        alert(data.error || 'Failed to update support.');
+      }
+    })
+    .catch(err => {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      console.error(err);
+    });
+  });
+});
+</script>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

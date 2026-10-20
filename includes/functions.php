@@ -240,7 +240,7 @@ function find_feedback(PDO $pdo, int $id): ?array
 
 function fetch_comments(PDO $pdo, int $feedbackId, bool $includePrivate): array
 {
-    $sql = 'SELECT c.*, u.name, u.role
+    $sql = 'SELECT c.*, u.name, u.role, u.department
             FROM comments c
             JOIN users u ON u.id = c.user_id
             WHERE c.feedback_id = ?' .
@@ -480,3 +480,68 @@ function attachment_html(array $a, string $base = ''): string
     }
     return '';
 }
+
+// ---------------- Support / Endorsement Helpers ----------------
+
+/** Get support count for a feedback. */
+function get_support_count(PDO $pdo, int $feedbackId): int
+{
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM feedback_endorsements WHERE feedback_id = ?');
+    $stmt->execute([$feedbackId]);
+    return (int)$stmt->fetchColumn();
+}
+
+/** Check if a user has supported a feedback. */
+function user_has_supported(PDO $pdo, int $feedbackId, int $userId): bool
+{
+    $stmt = $pdo->prepare('SELECT 1 FROM feedback_endorsements WHERE feedback_id = ? AND user_id = ? LIMIT 1');
+    $stmt->execute([$feedbackId, $userId]);
+    return (bool)$stmt->fetchColumn();
+}
+
+/** Toggle support for a feedback. Returns new total count and is_supported boolean. */
+function toggle_support(PDO $pdo, int $feedbackId, int $userId): array
+{
+    if (user_has_supported($pdo, $feedbackId, $userId)) {
+        $stmt = $pdo->prepare('DELETE FROM feedback_endorsements WHERE feedback_id = ? AND user_id = ?');
+        $stmt->execute([$feedbackId, $userId]);
+        $supported = false;
+    } else {
+        $stmt = $pdo->prepare('INSERT IGNORE INTO feedback_endorsements (feedback_id, user_id) VALUES (?, ?)');
+        $stmt->execute([$feedbackId, $userId]);
+        $supported = true;
+    }
+    return [
+        'supported' => $supported,
+        'count'     => get_support_count($pdo, $feedbackId),
+    ];
+}
+
+// ---------------- Nested Comments Tree Helper ----------------
+
+/**
+ * Builds a threaded tree from a flat list of comments.
+ * Each node gets a 'replies' array with child comments.
+ */
+function build_comment_tree(array $comments): array
+{
+    $grouped = [];
+    foreach ($comments as $c) {
+        $parentId = $c['parent_id'] !== null ? (int)$c['parent_id'] : 0;
+        $grouped[$parentId][] = $c;
+    }
+
+    $build = function (int $parentId) use (&$build, &$grouped): array {
+        $branch = [];
+        if (!empty($grouped[$parentId])) {
+            foreach ($grouped[$parentId] as $item) {
+                $item['replies'] = $build((int)$item['id']);
+                $branch[] = $item;
+            }
+        }
+        return $branch;
+    };
+
+    return $build(0);
+}
+

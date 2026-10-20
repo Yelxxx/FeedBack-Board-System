@@ -51,6 +51,16 @@ INSERT INTO users (id, id_number, name, email, password, department, role, field
  '$2y$12$LwFftRIDMFbp0RUh7kD3EOgSNPZTQMfyxg99zv3Qr9v8mnTDjkg6K',   -- superadmin123
  'Maintenance Office', 'admin', 'maintenance');
 
--- 6. Default admin password -> superadmin123 ----------------------------------
-UPDATE users SET password = '$2y$12$3U1if8uMAeI4n.6ag5OjVO8cZ021RlAMb9JJuy19zPf7MOsfpar4m'
-WHERE id = 1;
+-- 6. Nested Comments & Feedback Support/Endorsements -------------------------
+ALTER TABLE comments ADD COLUMN parent_id INT UNSIGNED DEFAULT NULL AFTER feedback_id;
+ALTER TABLE comments ADD CONSTRAINT fk_comment_parent FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE;
+
+CREATE TABLE IF NOT EXISTS feedback_endorsements (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  feedback_id INT UNSIGNED NOT NULL,
+  user_id     INT UNSIGNED NOT NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_feedback_user (feedback_id, user_id),
+  CONSTRAINT fk_endorse_feedback FOREIGN KEY (feedback_id) REFERENCES feedbacks(id) ON DELETE CASCADE,
+  CONSTRAINT fk_endorse_user     FOREIGN KEY (user_id)     REFERENCES users(id)     ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
