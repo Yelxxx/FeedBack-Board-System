@@ -11,38 +11,44 @@ $pageTitle = 'Dashboard';
 $active    = 'dashboard';
 $user      = current_user();
 
-// Status summary for the logged-in user
-$stmt = $pdo->prepare('SELECT status, COUNT(*) AS c FROM feedbacks WHERE user_id = ? GROUP BY status');
-$stmt->execute([(int)$user['id']]);
-$counts = ['pending' => 0, 'under_review' => 0, 'resolved' => 0];
-foreach ($stmt as $row) {
-    $counts[$row['status']] = (int)$row['c'];
+// General posts: public approved feedback from across all fields.
+// Filters: search, category, sort (newest, most supported)
+$q        = trim((string)($_GET['q'] ?? ''));
+$category = trim((string)($_GET['category'] ?? ''));
+$sort     = trim((string)($_GET['sort'] ?? 'newest'));
+
+$where = ["f.is_public = 1 AND f.status <> 'rejected'"];
+$params = [(int)$user['id']]; // for user_supported check
+
+if ($category !== '' && valid_category($category)) {
+    $where[] = 'f.category = ?';
+    $params[] = $category;
 }
-$total = array_sum($counts);
 
-// The user's own posts (rejected posts still appear here so they can see the
-// moderation decision on their own dashboard — shown with the badge).
-$stmt = $pdo->prepare(
-    'SELECT * FROM feedbacks WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 8'
-);
-$stmt->execute([(int)$user['id']]);
-$myTickets = $stmt->fetchAll();
+if ($q !== '') {
+    $where[] = '(f.title LIKE ? OR f.description LIKE ? OR f.ticket_no LIKE ?)';
+    $like = '%' . $q . '%';
+    array_push($params, $like, $like, $like);
+}
 
-// General posts: approved feedback from OTHER users, across all fields.
-// Rejected (moderated) posts never appear in the general feed.
-$stmt = $pdo->prepare(
-    "SELECT f.*, u.name,
-            (SELECT COUNT(*) FROM feedback_endorsements WHERE feedback_id = f.id) AS support_count,
-            (SELECT COUNT(*) FROM comments WHERE feedback_id = f.id) AS comment_count,
-            (SELECT 1 FROM feedback_endorsements WHERE feedback_id = f.id AND user_id = ?) AS user_supported
-     FROM feedbacks f
-     JOIN users u ON u.id = f.user_id
-     WHERE f.is_public = 1 AND f.user_id <> ? AND f.status <> 'rejected'
-     ORDER BY f.created_at DESC, f.id DESC
-     LIMIT 8"
-);
-$stmt->execute([(int)$user['id'], (int)$user['id']]);
+$orderBy = ($sort === 'supported')
+    ? 'support_count DESC, f.created_at DESC'
+    : 'f.created_at DESC, f.id DESC';
+
+$sql = "SELECT f.*, u.name,
+               (SELECT COUNT(*) FROM feedback_endorsements WHERE feedback_id = f.id) AS support_count,
+               (SELECT COUNT(*) FROM comments WHERE feedback_id = f.id) AS comment_count,
+               (SELECT 1 FROM feedback_endorsements WHERE feedback_id = f.id AND user_id = ?) AS user_supported
+        FROM feedbacks f
+        JOIN users u ON u.id = f.user_id
+        WHERE " . implode(' AND ', $where) . "
+        ORDER BY {$orderBy}
+        LIMIT 40";
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
 $generalPosts = $stmt->fetchAll();
+
 // Campus Announcements (visible to all users)
 $announcements = $pdo->query(
     'SELECT a.*, u.name AS author_name FROM announcements a
@@ -55,11 +61,8 @@ require __DIR__ . '/includes/header.php';
 
 <div class="dash-head">
   <div>
-    <h1 class="page-title">Welcome back, <?= e(first_name($user['name'])) ?>!</h1>
-    <p class="page-sub">
-      <?= e(role_label($user['role'])) ?>
-      <?php if (($field = admin_field($user)) !== null): ?> · Field: <strong><?= e($field) ?></strong><?php endif; ?>
-    </p>
+    <h1 class="page-title">General Posts</h1>
+    <p class="page-sub">Public concerns and suggestions shared across the campus community.</p>
   </div>
   <?php if (is_super_admin()): ?>
   <div style="display:flex; gap:0.6rem;">
@@ -67,7 +70,7 @@ require __DIR__ . '/includes/header.php';
     <a class="btn btn-outline btn-lg" href="admin/dashboard.php">Admin Panel</a>
   </div>
   <?php else: ?>
-  <a class="btn btn-primary btn-lg" href="submit.php">+ Submit Feedback</a>
+  <a class="btn btn-primary btn-lg" href="my-activity.php">+ Submit Feedback</a>
   <?php endif; ?>
 </div>
 
@@ -89,97 +92,71 @@ require __DIR__ . '/includes/header.php';
 </div>
 <?php endif; ?>
 
-<div class="dash-grid">
-  <div class="dash-col" id="general-anchor">
-    <div class="section-head">
-      <h2>My Posts</h2>
-      <p>Track the status of the posts you created.</p>
-    </div>
-
-    <?php if (empty($myTickets)): ?>
-      <div class="card empty-state">
-        <div class="empty-emoji"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div>
-        <?php if (is_super_admin()): ?>
-        <h3>Super Administrator Overview</h3>
-        <p>As Super Admin, you review campus concerns, assign field staff, and broadcast official announcements.</p>
-        <div style="display:flex; justify-content:center; gap:0.5rem; margin-top:0.5rem;">
-          <a class="btn btn-primary" href="announcements.php">Post Announcement</a>
-          <a class="btn btn-outline" href="admin/tickets.php">Manage All Tickets</a>
-        </div>
-        <?php else: ?>
-        <h3>You haven't submitted any feedback yet</h3>
-        <p>Spotted a broken facility or a safety issue? Let the school know.</p>
-        <a class="btn btn-primary" href="submit.php">Submit your first feedback</a>
-        <?php endif; ?>
-      </div>
-    <?php else: ?>
-      <div class="ticket-list">
-        <?php foreach ($myTickets as $t): ?>
-        <a class="card ticket-row" href="ticket.php?id=<?= (int)$t['id'] ?>">
-          <span class="ticket-no"><?= e($t['ticket_no']) ?></span>
-          <div class="ticket-main">
-            <div class="ticket-title-line">
-              <span class="ticket-title"><?= e($t['title']) ?></span>
-              <?= status_badge($t['status']) ?>
-            </div>
-            <div class="ticket-meta">
-              <?= category_badge($t['category']) ?>
-              <?php if ((int)$t['is_anonymous'] === 1): ?><?= anonymous_badge() ?><?php endif; ?>
-              <span class="ticket-date"><?= e(time_ago($t['created_at'])) ?></span>
-            </div>
-          </div>
-          <span class="ticket-chevron">›</span>
-        </a>
-        <?php endforeach; ?>
-      </div>
-    <?php endif; ?>
+<!-- Filter & Search Bar -->
+<form method="get" action="dashboard.php" class="card filter-bar" style="margin-bottom: 20px;">
+  <div class="filter-search">
+    <input type="search" name="q" class="input" placeholder="Search general concerns by title or keyword…" value="<?= e($q) ?>">
   </div>
+  <select name="category" class="input">
+    <option value="">All categories</option>
+    <?php foreach (CATEGORIES as $cat): ?>
+      <option value="<?= e($cat) ?>" <?= $category === $cat ? 'selected' : '' ?>><?= e($cat) ?></option>
+    <?php endforeach; ?>
+  </select>
+  <select name="sort" class="input">
+    <option value="newest" <?= $sort === 'newest' ? 'selected' : '' ?>>Newest first</option>
+    <option value="supported" <?= $sort === 'supported' ? 'selected' : '' ?>>Most supported</option>
+  </select>
+  <button type="submit" class="btn btn-primary">Filter</button>
+  <?php if ($q !== '' || $category !== '' || $sort !== 'newest'): ?>
+    <a class="btn btn-ghost" href="dashboard.php">Clear</a>
+  <?php endif; ?>
+</form>
 
-  <div class="dash-col" id="general">
-    <div class="section-head">
-      <h2>General Posts</h2>
-      <p>Feedback from other users across every field, approved for public viewing.</p>
+<div class="general-feed-container">
+  <?php if (empty($generalPosts)): ?>
+    <div class="card empty-state">
+      <div class="empty-emoji"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+      <h3>No posts match your filters</h3>
+      <p>Try adjusting your search terms or category filter to view other public concerns.</p>
     </div>
-
-    <?php if (empty($generalPosts)): ?>
-      <div class="card empty-state small">
-        <div class="empty-emoji"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
-        <p>No general posts yet.</p>
-      </div>
-    <?php else: ?>
-      <div class="feed-list">
-        <?php foreach ($generalPosts as $item): ?>
-        <a class="card feed-item" href="ticket.php?id=<?= (int)$item['id'] ?>" style="text-decoration:none; color:inherit; display:block;">
-          <div class="feed-top">
+  <?php else: ?>
+    <div class="board-grid" style="grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));">
+      <?php foreach ($generalPosts as $item): ?>
+      <a class="card board-card" href="ticket.php?id=<?= (int)$item['id'] ?>" style="text-decoration:none; color:inherit; display:flex; flex-direction:column;">
+        <div class="board-card-top" style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <?= category_badge($item['category']) ?>
             <?= status_badge($item['status']) ?>
           </div>
-          <h3 class="feed-title"><?= e($item['title']) ?></h3>
-          <p class="feed-text"><?= e(truncate($item['description'], 110)) ?></p>
-          <div class="board-card-meta" style="display:flex; justify-content:space-between; align-items:center;">
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span class="avatar avatar-sm"><?= $item['is_anonymous'] ? '?' : e(initials($item['name'])) ?></span>
-              <span><?= $item['is_anonymous'] ? 'Anonymous' : e($item['name']) ?></span>
-              <span class="dot-sep">•</span>
-              <span><?= e(time_ago($item['created_at'])) ?></span>
-            </div>
+          <span class="ticket-no"><?= e($item['ticket_no']) ?></span>
+        </div>
+        <h3 class="board-card-title" style="margin-top:6px;"><?= e($item['title']) ?></h3>
+        <p class="board-card-text"><?= e(truncate($item['description'], 130)) ?></p>
 
-            <div class="feed-stat-badges" style="display:flex; align-items:center; gap:8px;">
-              <span class="badge-card-support <?= (int)$item['user_supported'] === 1 ? 'is-supported' : '' ?>" title="Community Support">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-                <?= (int)$item['support_count'] ?> <?= (int)$item['support_count'] === 1 ? 'Support' : 'Supports' ?>
-              </span>
-              <span class="badge-card-comments" title="Discussion Comments">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                <?= (int)$item['comment_count'] ?>
-              </span>
-            </div>
+        <div class="board-card-meta" style="display:flex; justify-content:space-between; align-items:center; margin-top:auto; padding-top:10px; border-top:1px solid #f1f5f9;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="avatar avatar-sm"><?= $item['is_anonymous'] ? '?' : e(initials($item['name'])) ?></span>
+            <span style="font-size:13px; color:#475569;"><?= $item['is_anonymous'] ? 'Anonymous' : e($item['name']) ?></span>
+            <span class="dot-sep">•</span>
+            <span style="font-size:12.5px;"><?= e(time_ago($item['created_at'])) ?></span>
           </div>
-        </a>
-        <?php endforeach; ?>
-      </div>
-    <?php endif; ?>
-  </div>
+
+          <div class="feed-stat-badges" style="display:flex; align-items:center; gap:8px;">
+            <span class="badge-card-support <?= (int)$item['user_supported'] === 1 ? 'is-supported' : '' ?>" title="Community Support">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+              <?= (int)$item['support_count'] ?> <?= (int)$item['support_count'] === 1 ? 'Support' : 'Supports' ?>
+            </span>
+            <span class="badge-card-comments" title="Discussion Comments">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <?= (int)$item['comment_count'] ?>
+            </span>
+          </div>
+        </div>
+      </a>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
 </div>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

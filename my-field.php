@@ -87,7 +87,7 @@ require __DIR__ . '/includes/header.php';
       <?php endif; ?>
     </p>
   </div>
-  <a class="btn btn-primary btn-lg" href="submit.php">+ Submit Feedback</a>
+  <a class="btn btn-primary btn-lg" href="my-activity.php">+ Submit Feedback</a>
 </div>
 
 <form method="get" action="my-field.php" class="card filter-bar">
@@ -114,7 +114,7 @@ require __DIR__ . '/includes/header.php';
     </div>
     <h3>No posts in this field yet</h3>
     <p>When someone reports a concern related to <?= $field !== null ? '<strong>' . e($field) . '</strong>' : 'your field' ?>, it will appear here.</p>
-    <a class="btn btn-primary" href="submit.php">Be the first to report</a>
+    <a class="btn btn-primary" href="my-activity.php">Be the first to report</a>
   </div>
 <?php else: ?>
 <div class="ticket-list">

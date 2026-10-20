@@ -6,17 +6,9 @@
 require_once __DIR__ . '/config.php';
 require_login();
 
-$base      = '';
-$pageTitle = 'Submit Feedback';
-$user      = current_user();
-
-if (is_super_admin()) {
-    flash_set('info', 'As Super Administrator, you manage campus feedback and broadcast announcements.');
-    redirect('announcements.php');
-}
-
-$errors = [];
-$old = ['category' => '', 'title' => '', 'description' => '', 'is_anonymous' => 0];
+// Redirect to My Activity combined hub
+header('Location: my-activity.php#submit-form');
+exit;
 
 // User's ticket counts for the summary stat cards
 $stmt = $pdo->prepare('SELECT status, COUNT(*) AS c FROM feedbacks WHERE user_id = ? GROUP BY status');

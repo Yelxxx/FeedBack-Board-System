@@ -172,11 +172,11 @@ require __DIR__ . '/includes/header.php';
     <span class="hub-cta">Post announcement ›</span>
   </a>
   <?php else: ?>
-  <a class="card hub-card" href="submit.php">
+  <a class="card hub-card" href="my-activity.php">
     <span class="hub-icon"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>
-    <h3>Submit Feedback</h3>
-    <p>Raise a new concern with an image, video or audio attachment. Anonymous posting is available.</p>
-    <span class="hub-cta">Create a post ›</span>
+    <h3>My Activity</h3>
+    <p>Submit new feedback, follow progress on your reports, and track status updates directly.</p>
+    <span class="hub-cta">View activity & submit ›</span>
   </a>
   <?php endif; ?>
 </div>

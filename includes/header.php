@@ -52,7 +52,7 @@ $notifs    = $isLoggedIn ? unread_notifications($pdo, (int)$user['id']) : [];
       <?php if (is_super_admin()): ?>
       <a class="nav-link <?= $active === 'announcements' ? 'active' : '' ?>" href="<?= e($base) ?>announcements.php">Announcements</a>
       <?php else: ?>
-      <a class="nav-link <?= $active === 'submit' ? 'active' : '' ?>" href="<?= e($base) ?>submit.php">Submit Feedback</a>
+      <a class="nav-link <?= $active === 'activity' ? 'active' : '' ?>" href="<?= e($base) ?>my-activity.php">My Activity</a>
       <?php endif; ?>
       <?php if (is_admin()): ?>
       <a class="nav-link <?= $active === 'admin' ? 'active' : '' ?>" href="<?= e($base) ?>admin/dashboard.php">Admin Panel</a>
