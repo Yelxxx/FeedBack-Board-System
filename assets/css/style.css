@@ -1208,3 +1208,99 @@ body.auth-page-split { display: block; padding: 0; background: var(--bg); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Field Responder Status Management Widget ---------- */
+.responder-action-bar {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  border: 1px solid #bbf7d0;
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  margin-bottom: 22px;
+  box-shadow: 0 4px 14px -3px rgba(0, 98, 37, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.responder-action-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.responder-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.responder-badge-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #ffffff;
+  margin-bottom: 3px;
+}
+.responder-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+  margin: 0;
+}
+.responder-desc {
+  font-size: 13px;
+  color: var(--muted, #64748b);
+  margin: 2px 0 0 0;
+}
+.responder-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.responder-select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1.5px solid #86efac;
+  background: #ffffff;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1e293b;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.responder-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 98, 37, 0.15);
+}
+.btn-responder-update {
+  padding: 8px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+.btn-responder-update:hover {
+  background: #004d1c;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 98, 37, 0.25);
+}

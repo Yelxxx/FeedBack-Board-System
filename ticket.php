@@ -42,66 +42,108 @@ if (!$canView) {
 
 $canComment = $canView; // Any user who can view can comment/reply
 
-// Handle reply or threaded comment
+$canManageStatus = can_manage_ticket_status($user, $ticket);
+
+// Handle status updates or comments/replies
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!csrf_verify()) {
+        flash_set('error', 'Your session expired. Please try again.');
+        redirect('ticket.php?id=' . $ticket['id']);
+    }
+
+    $action = (string)($_POST['action'] ?? 'comment');
+
+    // 1. Target Field / Responder Status Management
+    if ($action === 'update_status') {
+        if (!$canManageStatus) {
+            flash_set('error', 'You do not have permission to manage the status of this ticket.');
+            redirect('ticket.php?id=' . $ticket['id']);
+        }
+
+        $newStatus = (string)($_POST['status'] ?? '');
+        // Field responders can manage normal lifecycle: pending, under_review, resolved
+        $allowedStatuses = ['pending', 'under_review', 'resolved'];
+        if (is_super_admin()) {
+            $allowedStatuses[] = 'rejected';
+        }
+
+        if (!in_array($newStatus, $allowedStatuses, true)) {
+            flash_set('error', 'Invalid status selection.');
+            redirect('ticket.php?id=' . $ticket['id']);
+        }
+
+        if ($newStatus !== $ticket['status']) {
+            $upd = $pdo->prepare('UPDATE feedbacks SET status = ? WHERE id = ?');
+            $upd->execute([$newStatus, (int)$ticket['id']]);
+
+            $deptName = $user['department'] ?: role_label($user['role']);
+            notify_user(
+                $pdo,
+                (int)$ticket['user_id'],
+                'Your ticket ' . $ticket['ticket_no'] . ' status was updated to "' . (STATUS_LABELS[$newStatus] ?? $newStatus) . '" by ' . $deptName . '.',
+                (int)$ticket['id']
+            );
+
+            flash_set('success', 'Ticket status updated to "' . (STATUS_LABELS[$newStatus] ?? $newStatus) . '".');
+        }
+        redirect('ticket.php?id=' . $ticket['id']);
+    }
+
+    // 2. Comments / replies
     if (!$canComment) {
         flash_set('error', 'You do not have permission to reply on this ticket.');
         redirect('ticket.php?id=' . $ticket['id']);
     }
 
-    if (!csrf_verify()) {
-        flash_set('error', 'Your session expired. Please try again.');
+    $message = trim((string)($_POST['message'] ?? ''));
+    $parentId = !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : null;
+
+    // Verify parent_id belongs to this feedback
+    if ($parentId !== null) {
+        $checkParent = $pdo->prepare('SELECT id, user_id FROM comments WHERE id = ? AND feedback_id = ?');
+        $checkParent->execute([$parentId, (int)$ticket['id']]);
+        $parentRow = $checkParent->fetch();
+        if (!$parentRow) {
+            $parentId = null;
+        }
+    }
+
+    if ($message === '') {
+        flash_set('error', 'Please type a message first.');
+    } elseif (strlen($message) > 2000) {
+        flash_set('error', 'Messages must be 2000 characters or less.');
+    } elseif (ProfanityFilter::containsBadWord($message)) {
+        $badWords = ProfanityFilter::findBadWords($message);
+        flash_set('error', 'Your comment contains inappropriate or explicit language (' . implode(', ', $badWords) . '). Please keep campus discussions respectful.');
     } else {
-        $message = trim((string)($_POST['message'] ?? ''));
-        $parentId = !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : null;
+        $stmt = $pdo->prepare(
+            "INSERT INTO comments (feedback_id, parent_id, user_id, message, visibility) VALUES (?, ?, ?, ?, 'public')"
+        );
+        $stmt->execute([(int)$ticket['id'], $parentId, (int)$user['id'], $message]);
 
-        // Verify parent_id belongs to this feedback
-        if ($parentId !== null) {
-            $checkParent = $pdo->prepare('SELECT id, user_id FROM comments WHERE id = ? AND feedback_id = ?');
-            $checkParent->execute([$parentId, (int)$ticket['id']]);
-            $parentRow = $checkParent->fetch();
-            if (!$parentRow) {
-                $parentId = null;
-            }
-        }
-
-        if ($message === '') {
-            flash_set('error', 'Please type a message first.');
-        } elseif (strlen($message) > 2000) {
-            flash_set('error', 'Messages must be 2000 characters or less.');
-        } elseif (ProfanityFilter::containsBadWord($message)) {
-            $badWords = ProfanityFilter::findBadWords($message);
-            flash_set('error', 'Your comment contains inappropriate or explicit language (' . implode(', ', $badWords) . '). Please keep campus discussions respectful.');
-        } else {
-            $stmt = $pdo->prepare(
-                "INSERT INTO comments (feedback_id, parent_id, user_id, message, visibility) VALUES (?, ?, ?, ?, 'public')"
+        // Notification dispatch:
+        if ($parentId !== null && isset($parentRow['user_id']) && (int)$parentRow['user_id'] !== (int)$user['id']) {
+            // User replied to a specific comment -> notify comment author
+            notify_user(
+                $pdo,
+                (int)$parentRow['user_id'],
+                $user['name'] . ' replied to your comment on ' . $ticket['ticket_no'] . ': "' . truncate($message, 50) . '"',
+                (int)$ticket['id']
             );
-            $stmt->execute([(int)$ticket['id'], $parentId, (int)$user['id'], $message]);
-
-            // Notification dispatch:
-            if ($parentId !== null && isset($parentRow['user_id']) && (int)$parentRow['user_id'] !== (int)$user['id']) {
-                // User replied to a specific comment -> notify comment author
-                notify_user(
-                    $pdo,
-                    (int)$parentRow['user_id'],
-                    $user['name'] . ' replied to your comment on ' . $ticket['ticket_no'] . ': "' . truncate($message, 50) . '"',
-                    (int)$ticket['id']
-                );
-            } elseif ($isAuthor) {
-                notify_admins($pdo, 'New reply on ' . $ticket['ticket_no'] . ': "' . truncate($message, 60) . '"', (int)$ticket['id']);
-            } elseif ((int)$ticket['user_id'] !== (int)$user['id']) {
-                $roleBadge = ($isAdminOfField || $isStaffOfField || $isSuper) ? ' (Official Response)' : '';
-                notify_user(
-                    $pdo,
-                    (int)$ticket['user_id'],
-                    'New reply on ' . $ticket['ticket_no'] . ' from ' . $user['name'] . $roleBadge . ': "' . truncate($message, 60) . '"',
-                    (int)$ticket['id']
-                );
-            }
-
-            flash_set('success', $parentId !== null ? 'Your reply was posted.' : 'Your comment was posted.');
-            redirect('ticket.php?id=' . $ticket['id'] . '#comments');
+        } elseif ($isAuthor) {
+            notify_admins($pdo, 'New reply on ' . $ticket['ticket_no'] . ': "' . truncate($message, 60) . '"', (int)$ticket['id']);
+        } elseif ((int)$ticket['user_id'] !== (int)$user['id']) {
+            $roleBadge = ($isAdminOfField || $isStaffOfField || $isSuper) ? ' (Official Response)' : '';
+            notify_user(
+                $pdo,
+                (int)$ticket['user_id'],
+                'New reply on ' . $ticket['ticket_no'] . ' from ' . $user['name'] . $roleBadge . ': "' . truncate($message, 60) . '"',
+                (int)$ticket['id']
+            );
         }
+
+        flash_set('success', $parentId !== null ? 'Your reply was posted.' : 'Your comment was posted.');
+        redirect('ticket.php?id=' . $ticket['id'] . '#comments');
     }
 }
 
@@ -166,6 +208,44 @@ require __DIR__ . '/includes/header.php';
       <strong>Ticket Rejected by Moderation</strong>
       <div style="font-size:0.9rem; margin-top:2px;">This feedback concern was rejected or closed by the Super Administrator. It is hidden from public view.</div>
     </div>
+  </div>
+<?php endif; ?>
+
+<?php if ($canManageStatus && !$isRejected): ?>
+  <!-- Field Responder Status Management Bar -->
+  <div class="responder-action-bar">
+    <div class="responder-action-info">
+      <div class="responder-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+      </div>
+      <div>
+        <span class="responder-badge-pill"><?= e(role_label($user['role'])) ?> Control</span>
+        <h3 class="responder-title">Department Status Action</h3>
+        <p class="responder-desc">You have responder authority over this <strong><?= e($ticket['category']) ?></strong> concern. Advance its operational status below.</p>
+      </div>
+    </div>
+
+    <form method="post" action="ticket.php?id=<?= (int)$ticket['id'] ?>" class="responder-controls">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="update_status">
+      <select name="status" class="responder-select" aria-label="Select ticket status">
+        <option value="pending" <?= $ticket['status'] === 'pending' ? 'selected' : '' ?>>⏳ Pending</option>
+        <option value="under_review" <?= $ticket['status'] === 'under_review' ? 'selected' : '' ?>>🔍 Under Review</option>
+        <option value="resolved" <?= $ticket['status'] === 'resolved' ? 'selected' : '' ?>>✅ Resolved</option>
+        <?php if (is_super_admin()): ?>
+          <option value="rejected" <?= $ticket['status'] === 'rejected' ? 'selected' : '' ?>>🚫 Rejected (Moderation)</option>
+        <?php endif; ?>
+      </select>
+      <button type="submit" class="btn-responder-update">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Update Status
+      </button>
+    </form>
   </div>
 <?php endif; ?>
 

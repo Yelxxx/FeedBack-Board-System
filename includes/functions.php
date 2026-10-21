@@ -195,6 +195,30 @@ function user_field(array $user): ?string
     return null;
 }
 
+/**
+ * Determines whether a given user has authority to advance/change normal
+ * operational statuses (Pending -> Under Review -> Resolved) on a ticket.
+ * - Super admin: universal authority.
+ * - Department head (admin): matches their field_scope.
+ * - Staff (e.g. maintenance staff): matches their department keyword/field.
+ */
+function can_manage_ticket_status(array $user, array $ticket): bool
+{
+    $role = $user['role'] ?? '';
+    if ($role === 'super_admin') {
+        return true;
+    }
+    if ($role === 'admin') {
+        $field = admin_field($user);
+        return $field === null || $field === ($ticket['category'] ?? '');
+    }
+    if ($role === 'staff') {
+        $field = user_field($user);
+        return $field === null || $field === ($ticket['category'] ?? '');
+    }
+    return false;
+}
+
 // ---------------- CSRF protection ----------------
 
 function csrf_token(): string
