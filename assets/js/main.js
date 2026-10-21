@@ -10,9 +10,27 @@
     var toggle = document.getElementById('navToggle');
     var links = document.getElementById('navLinks');
     if (toggle && links) {
-      toggle.addEventListener('click', function () {
+      toggle.addEventListener('click', function (ev) {
+        ev.stopPropagation();
         var open = links.classList.toggle('open');
+        toggle.classList.toggle('is-active', open);
         toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', function (ev) {
+        if (!ev.target.closest('#navLinks') && !ev.target.closest('#navToggle')) {
+          if (links.classList.contains('open')) {
+            links.classList.remove('open');
+            toggle.classList.remove('is-active');
+            toggle.setAttribute('aria-expanded', 'false');
+          }
+        }
+      });
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && links.classList.contains('open')) {
+          links.classList.remove('open');
+          toggle.classList.remove('is-active');
+          toggle.setAttribute('aria-expanded', 'false');
+        }
       });
     }
 
