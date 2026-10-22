@@ -12,7 +12,7 @@ $base = $base ?? '';
 
 <footer class="footer">
   <div class="container">
-    <p><?= e(APP_NAME) ?> — Capstone Project · Built with PHP &amp; MySQL</p>
+    <p><?= e(APP_NAME) ?> — Capstone Project · Developed by <strong>Yel</strong> · Built with PHP &amp; MySQL</p>
   </div>
 </footer>
 

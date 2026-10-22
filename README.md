@@ -6,7 +6,8 @@
 
 <p align="center">
   <strong>A Modern, Transparent, and Unbiased Campus Feedback & Issue Resolution Platform</strong><br>
-  <em>Capstone Project tailored for Olivarez College Tagaytay (OCT)</em>
+  <em>Capstone Project tailored for Olivarez College Tagaytay (OCT)</em><br>
+  <strong>Developed by:</strong> <a href="https://github.com/Yelxxx">Yel</a>
 </p>
 
 <p align="center">
